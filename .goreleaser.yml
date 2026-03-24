@@ -25,11 +25,11 @@ builds:
 
 archives:
   - id: default
-    format: tar.gz
+    formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     files:
       - README.md
       - LICENSE
@@ -52,7 +52,7 @@ nfpms:
       - src: README.md
         dst: /usr/share/doc/treecat/README.md
 
-brews:
+homebrew_casks:
   - name: treecat
     repository:
       owner: carterlasalle
