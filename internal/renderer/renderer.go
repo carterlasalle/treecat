@@ -20,9 +20,9 @@ type Options struct {
 	Format    Format
 	NoColor   bool
 	NoSyntax  bool
-	NoTree    bool  // skip tree header
-	NoContent bool  // skip file contents (tree only)
-	HexBinary bool  // show hex dump for binary files
+	NoTree    bool // skip tree header
+	NoContent bool // skip file contents (tree only)
+	HexBinary bool // show hex dump for binary files
 }
 
 // Render writes the tree + file contents to w.

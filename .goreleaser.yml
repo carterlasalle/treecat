@@ -62,8 +62,6 @@ homebrew_casks:
     homepage: https://github.com/carterlasalle/treecat
     description: Recursive directory tree + syntax-highlighted file contents
     license: MIT
-    test: |
-      system "#{bin}/treecat --version"
 
 checksum:
   name_template: checksums.txt
