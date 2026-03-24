@@ -1,0 +1,80 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: treecat
+    main: ./cmd/treecat
+    binary: treecat
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64, "386"]
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+nfpms:
+  - id: packages
+    package_name: treecat
+    homepage: https://github.com/carterlasalle/treecat
+    description: |-
+      Recursive directory tree printer with syntax-highlighted file contents.
+      Interactive TUI for file selection, extension filtering, and output formatting.
+    maintainer: carterlasalle <carterlasalle@users.noreply.github.com>
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/treecat/README.md
+
+brews:
+  - name: treecat
+    repository:
+      owner: carterlasalle
+      name: homebrew-treecat
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/carterlasalle/treecat
+    description: Recursive directory tree + syntax-highlighted file contents
+    license: MIT
+    test: |
+      system "#{bin}/treecat --version"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge remote-tracking branch
