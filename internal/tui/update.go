@@ -19,6 +19,11 @@ func updateModel(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Save dialog intercepts all keys while open.
+	if m.savePending {
+		return handleSaveDialog(m, msg)
+	}
+
 	panelH := m.treePanelH()
 
 	switch {
@@ -137,10 +142,48 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// gitignore toggling requires rescan; noted for future enhancement
 
 	case key.Matches(msg, keys.Confirm):
-		m.done = true
-		return m, tea.Quit
+		// Open save dialog instead of immediately quitting.
+		m.savePending = true
+		m.saveTarget = saveTerminal
+		m.fileInput.SetValue("output.md")
+		m.fileInput.CursorEnd()
+		return m, nil
 	}
 
 	m.rebuildFlat()
+	return m, nil
+}
+
+// handleSaveDialog handles keys while the save destination picker is open.
+// Tab cycles Terminal → File → Both. Enter confirms. Esc cancels.
+// When File or Both is active, all other keys are forwarded to the text input.
+func handleSaveDialog(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.savePending = false
+		m.fileInput.Blur()
+		return m, nil
+
+	case "enter":
+		m.done = true
+		return m, tea.Quit
+
+	case "tab":
+		m.saveTarget = (m.saveTarget + 1) % 3
+		if m.saveTarget == saveTerminal {
+			m.fileInput.Blur()
+			return m, nil
+		}
+		cmd := m.fileInput.Focus()
+		return m, cmd
+
+	default:
+		// Forward typing/editing keys to the file path input.
+		if m.saveTarget != saveTerminal {
+			var cmd tea.Cmd
+			m.fileInput, cmd = m.fileInput.Update(msg)
+			return m, cmd
+		}
+	}
 	return m, nil
 }

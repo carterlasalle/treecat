@@ -2,13 +2,24 @@ package tui
 
 import (
 	"io"
+	"os"
 	"sort"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/carterlasalle/treecat/internal/renderer"
 	"github.com/carterlasalle/treecat/internal/scanner"
 	"github.com/carterlasalle/treecat/internal/selector"
+)
+
+// saveTarget controls where generated output is written.
+type saveTarget int
+
+const (
+	saveTerminal saveTarget = iota // print to terminal after quit
+	saveFile                       // write to file
+	saveBoth                       // print to terminal AND write to file
 )
 
 // Options passed from CLI to TUI.
@@ -52,6 +63,11 @@ type Model struct {
 
 	showHex bool
 	done    bool
+
+	// save dialog
+	savePending bool
+	saveTarget  saveTarget
+	fileInput   textinput.Model
 }
 
 // NewModel creates a Model (exported for tests).
@@ -69,12 +85,18 @@ func newModel(state *selector.State, opts Options) Model {
 	}
 	sort.Strings(extOrder)
 
+	fi := textinput.New()
+	fi.Placeholder = "output.md"
+	fi.CharLimit = 256
+	fi.Width = 40
+
 	m := Model{
 		state:       state,
 		opts:        opts,
 		extOrder:    extOrder,
 		extSelected: extSel,
 		sortNames:   []string{"name", "size", "lines", "ext"},
+		fileInput:   fi,
 	}
 	m.rebuildFlat()
 	return m
@@ -184,7 +206,7 @@ func (m Model) View() string {
 	return renderView(m)
 }
 
-// Run starts the Bubble Tea program and renders output if the user confirms.
+// Run starts the Bubble Tea program and renders output when the user confirms.
 func Run(state *selector.State, opts Options) error {
 	m := newModel(state, opts)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -196,9 +218,38 @@ func Run(state *selector.State, opts Options) error {
 	if !ok || !fm.done {
 		return nil
 	}
-	// User pressed ctrl+g — render selected files to output.
-	return renderer.Render(opts.Output, state, renderer.Options{
+
+	renderOpts := renderer.Options{
 		Format:    opts.Format,
 		HexBinary: opts.HexBinary,
-	})
+	}
+
+	filePath := fm.fileInput.Value()
+	if filePath == "" {
+		filePath = "output.md"
+	}
+
+	switch fm.saveTarget {
+	case saveTerminal:
+		return renderer.Render(opts.Output, state, renderOpts)
+
+	case saveFile:
+		return renderToFile(filePath, state, renderOpts)
+
+	case saveBoth:
+		if err := renderer.Render(opts.Output, state, renderOpts); err != nil {
+			return err
+		}
+		return renderToFile(filePath, state, renderOpts)
+	}
+	return nil
+}
+
+func renderToFile(path string, state *selector.State, opts renderer.Options) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return renderer.Render(f, state, opts)
 }

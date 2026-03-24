@@ -26,10 +26,18 @@ func renderView(m Model) string {
 	previewPanel := stylePanelBorder.Width(previewW).Height(m.height - 4).Render(previewContent)
 
 	top := lipgloss.JoinHorizontal(lipgloss.Top, treePanel, previewPanel)
-	extBar := renderExtBar(m)
-	statusBar := renderStatusBar(m)
 
-	return lipgloss.JoinVertical(lipgloss.Left, top, extBar, statusBar)
+	// Bottom 2 rows: either ext bar + status bar, or the save dialog.
+	var line1, line2 string
+	if m.savePending {
+		line1 = renderSaveBar(m)
+		line2 = renderSaveFileLine(m)
+	} else {
+		line1 = renderExtBar(m)
+		line2 = renderStatusBar(m)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, top, line1, line2)
 }
 
 func renderTreePanel(m Model, width int) string {
@@ -198,4 +206,36 @@ func renderStatusBar(m Model) string {
 		gap = 1
 	}
 	return styleStatusBar.Width(m.width).Render(info + strings.Repeat(" ", gap) + hints)
+}
+
+// renderSaveBar renders the top row of the save dialog.
+func renderSaveBar(m Model) string {
+	labels := []string{"Terminal", "File", "Both"}
+	var chips []string
+	for i, label := range labels {
+		if saveTarget(i) == m.saveTarget {
+			chips = append(chips, styleExtChipOn.Render("● "+label))
+		} else {
+			chips = append(chips, styleExtChipOff.Render("  "+label))
+		}
+	}
+	bar := "Save: " + strings.Join(chips, "  ")
+	hint := "Tab=cycle · Enter=save · Esc=cancel"
+	gap := m.width - lipgloss.Width(bar) - len(hint) - 2
+	if gap < 1 {
+		gap = 1
+	}
+	return styleStatusBar.Width(m.width).Render(bar + strings.Repeat(" ", gap) + hint)
+}
+
+// renderSaveFileLine renders the second row of the save dialog.
+func renderSaveFileLine(m Model) string {
+	if m.saveTarget == saveTerminal {
+		return styleStatusBar.Width(m.width).Render("  → output will be printed to the terminal")
+	}
+	label := "  File: "
+	if m.saveTarget == saveBoth {
+		label = "  File (+ terminal): "
+	}
+	return styleStatusBar.Width(m.width).Render(label + m.fileInput.View())
 }
