@@ -58,7 +58,7 @@ homebrew_casks:
       owner: carterlasalle
       name: homebrew-treecat
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Formula
+    directory: Casks
     homepage: https://github.com/carterlasalle/treecat
     description: Recursive directory tree + syntax-highlighted file contents
     license: MIT
