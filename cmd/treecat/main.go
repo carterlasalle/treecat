@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/carterlasalle/treecat/internal/cli"
 )
 
 var (
@@ -12,9 +14,9 @@ var (
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "--version" {
-		fmt.Printf("treecat %s (%s, built %s)\n", version, commit, date)
-		os.Exit(0)
+	cmd := cli.NewRootCmd(os.Stdout)
+	cmd.Version = fmt.Sprintf("%s (commit %s, built %s)", version, commit, date)
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
 	}
-	fmt.Println("treecat: not yet implemented")
 }
