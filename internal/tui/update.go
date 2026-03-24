@@ -3,8 +3,6 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-
-	"github.com/carterlasalle/treecat/internal/scanner"
 )
 
 func updateModel(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -12,6 +10,7 @@ func updateModel(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.clampScroll()
 		return m, nil
 	case tea.KeyMsg:
 		return handleKey(m, msg)
@@ -20,18 +19,60 @@ func updateModel(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	panelH := m.treePanelH()
+
 	switch {
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
 
 	case key.Matches(msg, keys.Up):
-		if m.cursor > 0 {
-			m.cursor--
+		if m.focused == panelPreview {
+			if m.previewScroll > 0 {
+				m.previewScroll--
+			}
+		} else {
+			if m.cursor > 0 {
+				m.cursor--
+				m.previewScroll = 0
+			}
 		}
 
 	case key.Matches(msg, keys.Down):
-		if m.cursor < len(m.flatNodes)-1 {
-			m.cursor++
+		if m.focused == panelPreview {
+			m.previewScroll++
+		} else {
+			if m.cursor < len(m.flatNodes)-1 {
+				m.cursor++
+				m.previewScroll = 0
+			}
+		}
+
+	case key.Matches(msg, keys.PageUp):
+		if m.focused == panelPreview {
+			m.previewScroll -= panelH / 2
+			if m.previewScroll < 0 {
+				m.previewScroll = 0
+			}
+		} else {
+			m.cursor -= panelH
+			if m.cursor < 0 {
+				m.cursor = 0
+			}
+			m.previewScroll = 0
+		}
+
+	case key.Matches(msg, keys.PageDown):
+		if m.focused == panelPreview {
+			m.previewScroll += panelH / 2
+		} else {
+			m.cursor += panelH
+			if m.cursor >= len(m.flatNodes) {
+				m.cursor = len(m.flatNodes) - 1
+			}
+			if m.cursor < 0 {
+				m.cursor = 0
+			}
+			m.previewScroll = 0
 		}
 
 	case key.Matches(msg, keys.Toggle):
@@ -44,6 +85,22 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			n := m.flatNodes[m.cursor].node
 			if n.IsDir {
 				n.Collapsed = !n.Collapsed
+			}
+		}
+
+	case key.Matches(msg, keys.Left):
+		if m.cursor < len(m.flatNodes) {
+			n := m.flatNodes[m.cursor].node
+			if n.IsDir && !n.Collapsed {
+				n.Collapsed = true
+			}
+		}
+
+	case key.Matches(msg, keys.Right):
+		if m.cursor < len(m.flatNodes) {
+			n := m.flatNodes[m.cursor].node
+			if n.IsDir && n.Collapsed {
+				n.Collapsed = false
 			}
 		}
 
@@ -74,6 +131,7 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.ToggleHex):
 		m.showHex = !m.showHex
+		m.previewScroll = 0
 
 	case key.Matches(msg, keys.ToggleGit):
 		// gitignore toggling requires rescan; noted for future enhancement
@@ -86,6 +144,3 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.rebuildFlat()
 	return m, nil
 }
-
-// keep scanner import used via flatNode
-var _ = (*scanner.FileNode)(nil)

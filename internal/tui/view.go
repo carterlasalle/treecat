@@ -33,8 +33,15 @@ func renderView(m Model) string {
 }
 
 func renderTreePanel(m Model, width int) string {
+	panelH := m.treePanelH()
+	end := m.treeScroll + panelH
+	if end > len(m.flatNodes) {
+		end = len(m.flatNodes)
+	}
+
 	var lines []string
-	for i, fn := range m.flatNodes {
+	for i := m.treeScroll; i < end; i++ {
+		fn := m.flatNodes[i]
 		node := fn.node
 		indent := strings.Repeat("  ", fn.depth)
 
@@ -83,6 +90,25 @@ func renderTreePanel(m Model, width int) string {
 		}
 		lines = append(lines, line)
 	}
+
+	// Scroll indicators
+	if m.treeScroll > 0 {
+		indicator := styleAccent.Render(fmt.Sprintf("  ↑ %d above", m.treeScroll))
+		lines = append([]string{indicator}, lines...)
+		if len(lines) > panelH {
+			lines = lines[:panelH]
+		}
+	}
+	below := len(m.flatNodes) - end
+	if below > 0 {
+		indicator := styleAccent.Render(fmt.Sprintf("  ↓ %d below", below))
+		if len(lines) < panelH {
+			lines = append(lines, indicator)
+		} else {
+			lines[len(lines)-1] = indicator
+		}
+	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -91,34 +117,55 @@ func renderPreviewPanel(m Model, _ int) string {
 		return ""
 	}
 	node := m.flatNodes[m.cursor].node
-	title := stylePanelTitle.Render("Preview: "+node.Name) + "\n\n"
 
 	if node.IsDir {
-		return title + styleAccent.Render("(directory)")
+		title := stylePanelTitle.Render("Directory: "+node.Name) + "\n\n"
+		return title + styleAccent.Render(fmt.Sprintf("%d children", len(node.Children)))
 	}
+
+	title := stylePanelTitle.Render("Preview: "+node.Name) + "\n\n"
 
 	if node.IsBinary {
 		if m.showHex {
 			data, _ := os.ReadFile(node.Path)
-			return title + highlight.HexDump(data)
+			allLines := strings.Split(highlight.HexDump(data), "\n")
+			return title + scrolledLines(allLines, m.previewScroll, m.height-8)
 		}
 		return title + styleBinary.Render(fmt.Sprintf("[binary — %s]", humanize.Bytes(uint64(node.Size)))) +
-			"\n" + styleAccent.Render("Press H to toggle hex dump")
+			"\n" + styleAccent.Render("Press x to toggle hex dump")
 	}
 
 	data, err := os.ReadFile(node.Path)
 	if err != nil {
 		return title + err.Error()
 	}
-	lines := strings.Split(string(data), "\n")
-	maxLines := m.height - 8
-	if maxLines < 1 {
-		maxLines = 10
+	allLines := strings.Split(string(data), "\n")
+	maxVisible := m.height - 8
+	if maxVisible < 1 {
+		maxVisible = 10
 	}
-	if len(lines) > maxLines {
-		lines = append(lines[:maxLines], fmt.Sprintf("… (%d more lines)", len(lines)-maxLines))
+	scrollInfo := ""
+	if len(allLines) > maxVisible {
+		scrollInfo = styleAccent.Render(
+			fmt.Sprintf("  line %d/%d — tab+↑↓ to scroll\n", m.previewScroll+1, len(allLines)),
+		)
 	}
-	return title + strings.Join(lines, "\n")
+	return title + scrollInfo + scrolledLines(allLines, m.previewScroll, maxVisible)
+}
+
+// scrolledLines returns a window of lines starting at offset, clamped to available lines.
+func scrolledLines(lines []string, offset, maxVisible int) string {
+	if offset >= len(lines) {
+		offset = len(lines) - 1
+		if offset < 0 {
+			offset = 0
+		}
+	}
+	end := offset + maxVisible
+	if end > len(lines) {
+		end = len(lines)
+	}
+	return strings.Join(lines[offset:end], "\n")
 }
 
 func renderExtBar(m Model) string {
@@ -137,12 +184,15 @@ func renderExtBar(m Model) string {
 func renderStatusBar(m Model) string {
 	stats := m.state.Stats()
 	sortName := m.sortNames[m.sortMode]
-	info := fmt.Sprintf("%d files · %s · sort:%s",
-		stats.FileCount,
-		humanize.Bytes(uint64(stats.TotalSize)),
-		sortName,
-	)
-	hints := "↑↓ move  spc toggle  s sort  H hex  ctrl+g generate  q quit"
+	info := fmt.Sprintf("%d files · %s · sort:%s", stats.FileCount, humanize.Bytes(uint64(stats.TotalSize)), sortName)
+
+	var hints string
+	if m.focused == panelPreview {
+		hints = "↑↓ scroll preview  tab→tree  q quit"
+	} else {
+		hints = "↑↓ move  ←→/enter fold  spc select  s sort  tab preview  ctrl+g generate  q quit"
+	}
+
 	gap := m.width - len(info) - len(hints) - 2
 	if gap < 1 {
 		gap = 1
