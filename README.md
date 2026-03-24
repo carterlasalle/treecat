@@ -22,10 +22,29 @@ package main
 
 ## Install
 
-**Homebrew**
+**Homebrew** (macOS / Linux — recommended)
 ```bash
-brew install carterlasalle/treecat/treecat
+brew tap carterlasalle/treecat
+brew install treecat
 ```
+Homebrew bypasses macOS Gatekeeper automatically — no security prompts.
+
+**macOS — direct binary download**
+```bash
+# Apple Silicon (M1/M2/M3/M4)
+curl -fsSL https://github.com/carterlasalle/treecat/releases/latest/download/treecat_darwin_arm64.tar.gz | tar xz
+sudo mv treecat /usr/local/bin/
+
+# Intel Mac
+curl -fsSL https://github.com/carterlasalle/treecat/releases/latest/download/treecat_darwin_amd64.tar.gz | tar xz
+sudo mv treecat /usr/local/bin/
+```
+
+> **macOS Gatekeeper warning** — if you see *"cannot be opened because Apple cannot check it for malicious software"*, run:
+> ```bash
+> xattr -d com.apple.quarantine /usr/local/bin/treecat
+> ```
+> This removes the quarantine flag macOS applies to all internet-downloaded binaries. The binary is built from source in [public CI](https://github.com/carterlasalle/treecat/actions). Using `brew install` (above) avoids this entirely.
 
 **Debian/Ubuntu**
 ```bash
@@ -113,21 +132,42 @@ Run `treecat -i` to open the interactive file selector:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+**Tree panel**
+
 | Key | Action |
 |-----|--------|
-| `↑/↓` or `j/k` | Navigate |
+| `↑/↓` or `j/k` | Move cursor |
+| `pgup/pgdn` or `ctrl+u/ctrl+d` | Jump half a page |
+| `←/→` or `h/l` | Collapse / expand directory |
+| `Enter` | Toggle collapse/expand |
 | `Space` | Toggle file selection |
-| `Enter` | Expand/collapse directory |
-| `a` | Select all direct children |
-| `A` | Select/deselect all (recursive) |
+| `a` | Select/deselect all direct children of dir |
+| `A` | Select/deselect entire tree (recursive) |
 | `s` | Cycle sort: name → size → lines → ext |
-| `g` | Toggle .gitignore |
-| `H` | Toggle hex dump for binary files |
-| `Tab` | Switch tree / preview panel |
-| `ctrl+g` | Generate output and exit |
+| `Tab` | Switch to preview panel |
+| `x` | Toggle hex dump (binary files) |
+| `H` | Toggle hidden files |
+| `ctrl+g` | Open save dialog |
 | `q` / `Esc` | Quit |
 
-The extension filter bar at the bottom lets you toggle entire file types at once. Sorting by **size** (`s` twice) surfaces the largest files immediately — handy for catching accidentally included images or binaries.
+**Preview panel** (after pressing `Tab`)
+
+| Key | Action |
+|-----|--------|
+| `↑/↓` | Scroll content |
+| `pgup/pgdn` or `ctrl+u/ctrl+d` | Jump half a page |
+| `Tab` | Switch back to tree |
+
+**Save dialog** (after pressing `ctrl+g`)
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Cycle: Terminal → File → Both |
+| Type / backspace | Edit the output file path |
+| `Enter` | Confirm and generate output |
+| `Esc` | Cancel, return to tree |
+
+The extension filter bar shows all detected file types — it's display-only for now. Sorting by **size** (`s` twice) surfaces the largest files immediately — handy for catching accidentally included images or binaries.
 
 ## CI/CD
 
