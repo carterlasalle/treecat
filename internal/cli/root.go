@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	"github.com/carterlasalle/treecat/internal/filter"
 	"github.com/carterlasalle/treecat/internal/renderer"
 	"github.com/carterlasalle/treecat/internal/scanner"

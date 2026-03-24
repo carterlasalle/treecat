@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+
 	"github.com/carterlasalle/treecat/internal/renderer"
 	"github.com/carterlasalle/treecat/internal/scanner"
 	"github.com/carterlasalle/treecat/internal/selector"

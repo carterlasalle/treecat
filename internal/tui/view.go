@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+
 	"github.com/carterlasalle/treecat/internal/highlight"
 )
 
@@ -90,7 +91,7 @@ func renderPreviewPanel(m Model, _ int) string {
 		return ""
 	}
 	node := m.flatNodes[m.cursor].node
-	title := stylePanelTitle.Render("Preview: " + node.Name) + "\n\n"
+	title := stylePanelTitle.Render("Preview: "+node.Name) + "\n\n"
 
 	if node.IsDir {
 		return title + styleAccent.Render("(directory)")

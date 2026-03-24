@@ -4,10 +4,11 @@ import (
 	"io"
 	"sort"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/carterlasalle/treecat/internal/renderer"
 	"github.com/carterlasalle/treecat/internal/scanner"
 	"github.com/carterlasalle/treecat/internal/selector"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Options passed from CLI to TUI.

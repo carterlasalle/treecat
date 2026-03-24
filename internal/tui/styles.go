@@ -3,7 +3,7 @@ package tui
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	colorAccent = lipgloss.Color("86")  // cyan
+	colorAccent = lipgloss.Color("86") // cyan
 	colorDim    = lipgloss.Color("240")
 	colorDir    = lipgloss.Color("75") // bold blue
 	colorBinary = lipgloss.Color("238")

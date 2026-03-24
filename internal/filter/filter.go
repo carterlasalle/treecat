@@ -3,8 +3,9 @@ package filter
 import (
 	"path/filepath"
 
-	"github.com/carterlasalle/treecat/internal/scanner"
 	gitignore "github.com/sabhiram/go-gitignore"
+
+	"github.com/carterlasalle/treecat/internal/scanner"
 )
 
 // Options controls which files are included.
