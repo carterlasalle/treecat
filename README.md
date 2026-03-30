@@ -193,7 +193,6 @@ If your `homebrew-treecat` repo used to publish a cask, migrate it once to formu
 # in carterlasalle/homebrew-treecat
 mkdir -p Formula
 git mv Casks/treecat.rb Formula/treecat.rb 2>/dev/null || true
-git rm -f Casks/treecat.rb 2>/dev/null || true
 rmdir Casks 2>/dev/null || true
 ```
 
