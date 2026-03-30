@@ -192,9 +192,11 @@ If your `homebrew-treecat` repo used to publish a cask, migrate it once to formu
 ```bash
 # in carterlasalle/homebrew-treecat
 mkdir -p Formula
-git mv Casks/treecat.rb Formula/treecat.rb 2>/dev/null || true
+git rm -f Casks/treecat.rb 2>/dev/null || true
 rmdir Casks 2>/dev/null || true
 ```
+
+Do **not** move the old cask file into `Formula/`. A cask file starts with `cask "treecat" do` and cannot be loaded as a formula.
 
 Your tap should end up like:
 
@@ -225,6 +227,16 @@ treecat --version
 Expected result: the release workflow creates/updates `Formula/treecat.rb` in `homebrew-treecat`, and users install from the formula with:
 
 ```bash
+brew install carterlasalle/treecat/treecat
+```
+
+If you previously installed the cask or have a stale local tap checkout, reset locally:
+
+```bash
+brew uninstall --cask treecat 2>/dev/null || true
+brew untap carterlasalle/treecat
+brew tap carterlasalle/treecat
+brew update
 brew install carterlasalle/treecat/treecat
 ```
 
