@@ -185,6 +185,31 @@ GoReleaser builds binaries for Linux/macOS/Windows, creates `.deb`/`.rpm`/`.apk`
 
 > **Note:** Add a `HOMEBREW_TAP_GITHUB_TOKEN` secret to your repo (Settings → Secrets → Actions) with a Personal Access Token that has `repo` scope on your `homebrew-treecat` repository.
 
+### Homebrew formula publishing checklist
+
+If your `homebrew-treecat` repo used to publish a cask, migrate it once to formula layout:
+
+1. In `carterlasalle/homebrew-treecat`, keep/create `Formula/treecat.rb`.
+2. Remove old cask file(s), usually `Casks/treecat.rb`.
+3. Make sure the default branch is writable by the token in `HOMEBREW_TAP_GITHUB_TOKEN`.
+
+Then verify each release updates the formula:
+
+```bash
+# in this repo
+git tag v1.0.0
+git push origin v1.0.0
+
+# after the Release workflow finishes
+brew update
+brew tap carterlasalle/treecat
+brew info carterlasalle/treecat/treecat
+brew reinstall carterlasalle/treecat/treecat
+treecat --version
+```
+
+Expected result: the release workflow creates/updates `Formula/treecat.rb` in `homebrew-treecat`, and users install with `brew install treecat` from your tap without manual `xattr`/`codesign`.
+
 ## License
 
 MIT
