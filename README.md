@@ -189,9 +189,24 @@ GoReleaser builds binaries for Linux/macOS/Windows, creates `.deb`/`.rpm`/`.apk`
 
 If your `homebrew-treecat` repo used to publish a cask, migrate it once to formula layout:
 
-1. In `carterlasalle/homebrew-treecat`, keep/create `Formula/treecat.rb`.
-2. Remove old cask file(s), usually `Casks/treecat.rb`.
-3. Make sure the default branch is writable by the token in `HOMEBREW_TAP_GITHUB_TOKEN`.
+```bash
+# in carterlasalle/homebrew-treecat
+mkdir -p Formula
+git mv Casks/treecat.rb Formula/treecat.rb 2>/dev/null || true
+git rm -f Casks/treecat.rb 2>/dev/null || true
+rmdir Casks 2>/dev/null || true
+```
+
+Your tap should end up like:
+
+```text
+homebrew-treecat/
+├── Formula/
+│   └── treecat.rb
+└── README.md
+```
+
+Make sure the default branch is writable by the token in `HOMEBREW_TAP_GITHUB_TOKEN`.
 
 Then verify each release updates the formula:
 
@@ -208,7 +223,11 @@ brew reinstall carterlasalle/treecat/treecat
 treecat --version
 ```
 
-Expected result: the release workflow creates/updates `Formula/treecat.rb` in `homebrew-treecat`, and users install with `brew install treecat` from your tap without manual `xattr`/`codesign`.
+Expected result: the release workflow creates/updates `Formula/treecat.rb` in `homebrew-treecat`, and users install from the formula with:
+
+```bash
+brew install carterlasalle/treecat/treecat
+```
 
 ## License
 
