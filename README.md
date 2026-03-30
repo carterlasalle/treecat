@@ -26,10 +26,8 @@ package main
 ```bash
 brew tap carterlasalle/treecat
 brew install treecat
-xattr -d com.apple.quarantine $(which treecat)
-codesign --force --deep -s - $(which treecat)
 ```
-Homebrew now needs to bypass macOS Gatekeeper
+`treecat` is now distributed as a Homebrew **formula** (not a cask), so Homebrew builds it from source and avoids the macOS quarantine/codesign workaround.
 
 **macOS — direct binary download**
 ```bash
@@ -42,11 +40,11 @@ curl -fsSL https://github.com/carterlasalle/treecat/releases/latest/download/tre
 sudo mv treecat /usr/local/bin/
 ```
 
-> **macOS Gatekeeper warning** — if you see *"cannot be opened because Apple cannot check it for malicious software"*, run:
+> **macOS Gatekeeper warning (direct download only)** — if you see *"cannot be opened because Apple cannot check it for malicious software"*, run:
 > ```bash
 > xattr -d com.apple.quarantine /usr/local/bin/treecat
 > ```
-> This removes the quarantine flag macOS applies to all internet-downloaded binaries. The binary is built from source in [public CI](https://github.com/carterlasalle/treecat/actions). 
+> This removes the quarantine flag macOS applies to internet-downloaded binaries. Homebrew formula installs should not need this.
 
 **Debian/Ubuntu**
 ```bash

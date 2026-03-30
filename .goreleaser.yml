@@ -52,13 +52,13 @@ nfpms:
       - src: README.md
         dst: /usr/share/doc/treecat/README.md
 
-homebrew_casks:
+brews:
   - name: treecat
     repository:
       owner: carterlasalle
       name: homebrew-treecat
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Casks
+    directory: Formula
     homepage: https://github.com/carterlasalle/treecat
     description: Recursive directory tree + syntax-highlighted file contents
     license: MIT
