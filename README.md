@@ -177,8 +177,9 @@ Releases are fully automated:
 - **Release** triggers automatically when you push a `v*` tag:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+# replace X.Y.Z with the next semver release (for example: 1.2.3)
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 GoReleaser builds binaries for Linux/macOS/Windows, creates `.deb`/`.rpm`/`.apk` packages, publishes a GitHub Release, and pushes the Homebrew formula automatically.
@@ -192,9 +193,22 @@ If your `homebrew-treecat` repo used to publish a cask, migrate it once to formu
 ```bash
 # in carterlasalle/homebrew-treecat
 mkdir -p Formula
-git rm -f Casks/treecat.rb 2>/dev/null || true
-grep -q '^cask "' Formula/treecat.rb 2>/dev/null && git rm -f Formula/treecat.rb || true
-rmdir Casks 2>/dev/null || true
+if [ -f Casks/treecat.rb ]; then
+  echo "Removing legacy Casks/treecat.rb"
+  git rm -f Casks/treecat.rb
+fi
+if [ -f Formula/treecat.rb ] && grep -Eq "^cask [\"']" Formula/treecat.rb; then
+  echo "Removing cask-based Formula/treecat.rb"
+  git rm -f Formula/treecat.rb
+fi
+if [ -d Casks ]; then
+  if [ -z "$(ls -A Casks)" ]; then
+    echo "Removing empty Casks/ directory"
+    rmdir Casks
+  else
+    echo "Leaving non-empty Casks/ directory for manual review"
+  fi
+fi
 ```
 
 Do **not** move the old cask file into `Formula/`. A cask file starts with `cask "treecat" do` and cannot be loaded as a formula.
@@ -215,8 +229,9 @@ Then verify each release updates the formula:
 
 ```bash
 # in this repo
-git tag v1.0.0
-git push origin v1.0.0
+# replace X.Y.Z with the next semver release (for example: 1.2.3)
+git tag vX.Y.Z
+git push origin vX.Y.Z
 
 # after the Release workflow finishes
 brew update
