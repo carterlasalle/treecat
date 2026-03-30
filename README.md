@@ -26,8 +26,10 @@ package main
 ```bash
 brew tap carterlasalle/treecat
 brew install treecat
+xattr -d com.apple.quarantine $(which treecat)
+codesign --force --deep -s - $(which treecat)
 ```
-Homebrew bypasses macOS Gatekeeper automatically — no security prompts.
+Homebrew now needs to bypass macOS Gatekeeper
 
 **macOS — direct binary download**
 ```bash
@@ -44,7 +46,7 @@ sudo mv treecat /usr/local/bin/
 > ```bash
 > xattr -d com.apple.quarantine /usr/local/bin/treecat
 > ```
-> This removes the quarantine flag macOS applies to all internet-downloaded binaries. The binary is built from source in [public CI](https://github.com/carterlasalle/treecat/actions). Using `brew install` (above) avoids this entirely.
+> This removes the quarantine flag macOS applies to all internet-downloaded binaries. The binary is built from source in [public CI](https://github.com/carterlasalle/treecat/actions). 
 
 **Debian/Ubuntu**
 ```bash
