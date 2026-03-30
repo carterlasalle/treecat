@@ -193,10 +193,12 @@ If your `homebrew-treecat` repo used to publish a cask, migrate it once to formu
 # in carterlasalle/homebrew-treecat
 mkdir -p Formula
 git rm -f Casks/treecat.rb 2>/dev/null || true
+grep -q '^cask "' Formula/treecat.rb 2>/dev/null && git rm -f Formula/treecat.rb || true
 rmdir Casks 2>/dev/null || true
 ```
 
 Do **not** move the old cask file into `Formula/`. A cask file starts with `cask "treecat" do` and cannot be loaded as a formula.
+If `Formula/treecat.rb` currently starts with `cask`, delete it and let the next release regenerate it as a formula.
 
 Your tap should end up like:
 
