@@ -34,6 +34,10 @@ type Options struct {
 	Extensions    []string
 	MaxSize       int64
 	SortMode      selector.SortMode
+	NoColor       bool
+	NoSyntax      bool
+	RootPath      string
+	RelativePaths bool
 }
 
 type panel int
@@ -72,6 +76,7 @@ type Model struct {
 	showHex          bool
 	showHidden       bool
 	respectGitignore bool
+	showHelp         bool
 	done             bool
 
 	selectedByPath  map[string]bool
@@ -390,8 +395,12 @@ func Run(source *scanner.FileNode, opts Options) error {
 	}
 
 	renderOpts := renderer.Options{
-		Format:    opts.Format,
-		HexBinary: opts.HexBinary,
+		Format:        opts.Format,
+		HexBinary:     opts.HexBinary,
+		NoColor:       opts.NoColor,
+		NoSyntax:      opts.NoSyntax,
+		RootPath:      opts.RootPath,
+		RelativePaths: opts.RelativePaths,
 	}
 
 	filePath := fm.fileInput.Value()

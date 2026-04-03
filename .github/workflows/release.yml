@@ -4,10 +4,17 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -15,15 +22,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history for changelog
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
+      - name: Verify module graph
+        run: |
+          go mod verify
+          go mod tidy -diff
+
       - name: Run tests before release
         run: go test ./... -race
+
+      - name: Run vulnerability scan
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -34,3 +51,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Verify release artifacts
+        run: |
+          test -f dist/checksums.txt
+          test -n "$(ls dist/*.tar.gz)"
+          test -n "$(ls dist/*.deb)"
+          test -n "$(ls dist/*.rpm)"
+          test -n "$(ls dist/*.apk)"
+
+      - name: Smoke test released binary
+        run: |
+          rm -rf /tmp/treecat-release
+          mkdir -p /tmp/treecat-release
+          tar -xzf dist/treecat_linux_amd64.tar.gz -C /tmp/treecat-release
+          /tmp/treecat-release/treecat version
+          /tmp/treecat-release/treecat completion bash >/dev/null
+          /tmp/treecat-release/treecat man >/dev/null
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM
+        run: syft dir:dist -o spdx-json=dist/treecat.spdx.json
+
+      - name: Upload SBOM to GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${GITHUB_REF_NAME}" dist/treecat.spdx.json --clobber
+
+      - name: Attest checksums manifest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/checksums.txt

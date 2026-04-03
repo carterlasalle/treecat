@@ -22,7 +22,7 @@ func renderTerminal(w io.Writer, state *selector.State, opts Options) error {
 		return nil
 	}
 	for _, node := range state.Selected() {
-		fmt.Fprintf(w, "\n---\nFile: %s\n---\n\n", node.Path)
+		fmt.Fprintf(w, "\n---\nFile: %s\n---\n\n", displayPath(node.Path, opts))
 		if err := writeFileContent(w, node, opts); err != nil {
 			return err
 		}

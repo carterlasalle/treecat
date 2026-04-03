@@ -16,29 +16,50 @@ import (
 	"github.com/carterlasalle/treecat/internal/tui"
 )
 
+const longDescription = `treecat scans a directory, prints a directory tree, and exports the contents
+of the selected files in terminal, markdown, or plain-text form.
+
+It is designed for packaging codebase context for LLM prompts, code review,
+and documentation handoffs while keeping output predictable for scripts.`
+
+const examples = `  treecat
+  treecat . -o md -f context.md
+  treecat . -e .go -s lines
+  treecat . --relative --tree-only
+  treecat . -i
+  treecat completion zsh > ~/.zsh/completions/_treecat
+  treecat man > treecat.1`
+
 // NewRootCmd builds the cobra root command, writing output to w.
 func NewRootCmd(w io.Writer) *cobra.Command {
 	var (
-		outputFmt   string
-		outputFile  string
-		extensions  []string
-		noIgnore    bool
-		hidden      bool
-		maxDepth    int
-		maxSizeStr  string
-		hexBinary   bool
-		sortMode    string
-		noTree      bool
-		treeOnly    bool
-		noColor     bool
-		noSyntax    bool
-		interactive bool
+		outputFmt     string
+		outputFile    string
+		extensions    []string
+		noIgnore      bool
+		hidden        bool
+		maxDepth      int
+		maxSizeStr    string
+		hexBinary     bool
+		sortMode      string
+		noTree        bool
+		treeOnly      bool
+		noColor       bool
+		noSyntax      bool
+		interactive   bool
+		relativePaths bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "treecat [path]",
-		Short: "Recursive directory tree + syntax-highlighted file contents",
-		Args:  cobra.MaximumNArgs(1),
+		Use:               "treecat [path]",
+		Short:             "Recursive directory tree + syntax-highlighted file contents",
+		Long:              longDescription,
+		Example:           examples,
+		Version:           "dev",
+		SilenceUsage:      true,
+		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
+		DisableAutoGenTag: true,
+		Args:              cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root := "."
 			if len(args) > 0 {
@@ -66,7 +87,15 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 			}
 
 			exts := normaliseExts(extensions)
-			sort := parseSortMode(sortMode)
+			format, err := parseFormat(outputFmt)
+			if err != nil {
+				return err
+			}
+			sort, err := parseSortMode(sortMode)
+			if err != nil {
+				return err
+			}
+			resolvedNoColor := noColor || os.Getenv("NO_COLOR") != ""
 
 			if interactive {
 				source, err := scanner.Scan(abs, scanner.Options{
@@ -78,7 +107,7 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 				}
 				return tui.Run(source, tui.Options{
 					Output:        w,
-					Format:        parseFormat(outputFmt),
+					Format:        format,
 					HexBinary:     hexBinary,
 					GitignorePath: gitignorePath,
 					NoIgnore:      noIgnore,
@@ -86,6 +115,10 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 					Extensions:    exts,
 					MaxSize:       maxSizeBytes,
 					SortMode:      sort,
+					NoColor:       resolvedNoColor,
+					NoSyntax:      noSyntax,
+					RootPath:      abs,
+					RelativePaths: relativePaths,
 				})
 			}
 
@@ -120,15 +153,21 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 			}
 
 			return renderer.Render(out, state, renderer.Options{
-				Format:    parseFormat(outputFmt),
-				NoColor:   noColor,
-				NoSyntax:  noSyntax,
-				NoTree:    noTree,
-				NoContent: treeOnly,
-				HexBinary: hexBinary,
+				Format:        format,
+				NoColor:       resolvedNoColor,
+				NoSyntax:      noSyntax,
+				NoTree:        noTree,
+				NoContent:     treeOnly,
+				HexBinary:     hexBinary,
+				RootPath:      abs,
+				RelativePaths: relativePaths,
 			})
 		},
 	}
+	cmd.SetOut(w)
+	cmd.SetErr(os.Stderr)
+	cmd.SetVersionTemplate("{{.Version}}\n")
+	cmd.AddCommand(newCompletionCmd(w), newManCmd(w), newVersionCmd(w))
 
 	f := cmd.Flags()
 	f.StringVarP(&outputFmt, "output", "o", "terminal", "output format: terminal|md|txt")
@@ -142,9 +181,10 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 	f.StringVarP(&sortMode, "sort", "s", "name", "sort: name|size|lines|ext")
 	f.BoolVar(&noTree, "no-tree", false, "skip directory tree header")
 	f.BoolVar(&treeOnly, "tree-only", false, "print tree only, skip file contents")
-	f.BoolVar(&noColor, "no-color", false, "disable ANSI colors")
+	f.BoolVar(&noColor, "no-color", false, "disable ANSI colors (also honored via NO_COLOR)")
 	f.BoolVar(&noSyntax, "no-syntax", false, "disable syntax highlighting")
 	f.BoolVarP(&interactive, "interactive", "i", false, "launch interactive TUI")
+	f.BoolVar(&relativePaths, "relative", false, "render file headers relative to the scanned root")
 
 	return cmd
 }
@@ -164,27 +204,31 @@ func normaliseExts(exts []string) []string {
 	return out
 }
 
-func parseFormat(s string) renderer.Format {
-	switch strings.ToLower(s) {
+func parseFormat(s string) (renderer.Format, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "terminal", "term", "":
+		return renderer.FormatTerminal, nil
 	case "md", "markdown":
-		return renderer.FormatMarkdown
+		return renderer.FormatMarkdown, nil
 	case "txt", "text":
-		return renderer.FormatText
+		return renderer.FormatText, nil
 	default:
-		return renderer.FormatTerminal
+		return renderer.FormatTerminal, fmt.Errorf("invalid --output %q (expected terminal, md, or txt)", s)
 	}
 }
 
-func parseSortMode(s string) selector.SortMode {
-	switch s {
+func parseSortMode(s string) (selector.SortMode, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "name", "":
+		return selector.SortName, nil
 	case "size":
-		return selector.SortSize
+		return selector.SortSize, nil
 	case "lines":
-		return selector.SortLines
+		return selector.SortLines, nil
 	case "ext":
-		return selector.SortExt
+		return selector.SortExt, nil
 	default:
-		return selector.SortName
+		return selector.SortName, fmt.Errorf("invalid --sort %q (expected name, size, lines, or ext)", s)
 	}
 }
 

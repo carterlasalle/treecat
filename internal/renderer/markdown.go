@@ -22,7 +22,7 @@ func renderMarkdown(w io.Writer, state *selector.State, opts Options) error {
 	}
 	for _, node := range state.Selected() {
 		lang := langFromExt(node.Ext)
-		fmt.Fprintf(w, "### File: `%s`\n\n", node.Path)
+		fmt.Fprintf(w, "### File: `%s`\n\n", displayPath(node.Path, opts))
 		if node.IsBinary {
 			if opts.HexBinary {
 				data, err := os.ReadFile(node.Path)

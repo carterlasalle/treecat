@@ -16,22 +16,38 @@ func renderView(m Model) string {
 		return "Loading..."
 	}
 
-	treeW := m.width * 2 / 5
-	previewW := m.width - treeW - 4
+	mainHeight := m.height - 4
+	if mainHeight < 3 {
+		mainHeight = 3
+	}
 
-	treeContent := renderTreePanel(m, treeW)
-	previewContent := renderPreviewPanel(m, previewW)
+	var top string
+	if m.width < 100 || m.height < 18 {
+		panelWidth := maxInt(m.width, 20)
+		panelContent := renderTreePanel(m, panelWidth-4)
+		if m.focused == panelPreview {
+			panelContent = renderPreviewPanel(m, panelWidth-4)
+		}
+		top = stylePanelBorder.Width(panelWidth).Height(mainHeight).Render(panelContent)
+	} else {
+		treeW := m.width * 2 / 5
+		previewW := m.width - treeW - 4
 
-	treePanel := stylePanelBorder.Width(treeW).Height(m.height - 4).Render(treeContent)
-	previewPanel := stylePanelBorder.Width(previewW).Height(m.height - 4).Render(previewContent)
+		treeContent := renderTreePanel(m, treeW)
+		previewContent := renderPreviewPanel(m, previewW)
 
-	top := lipgloss.JoinHorizontal(lipgloss.Top, treePanel, previewPanel)
+		treePanel := stylePanelBorder.Width(treeW).Height(mainHeight).Render(treeContent)
+		previewPanel := stylePanelBorder.Width(previewW).Height(mainHeight).Render(previewContent)
+		top = lipgloss.JoinHorizontal(lipgloss.Top, treePanel, previewPanel)
+	}
 
-	// Bottom 2 rows: either ext bar + status bar, or the save dialog.
 	var line1, line2 string
 	if m.savePending {
 		line1 = renderSaveBar(m)
 		line2 = renderSaveFileLine(m)
+	} else if m.showHelp {
+		line1 = renderHelpBar(m)
+		line2 = renderStatusBar(m)
 	} else {
 		line1 = renderExtBar(m)
 		line2 = renderStatusBar(m)
@@ -218,18 +234,27 @@ func renderStatusBar(m Model) string {
 	}
 	info := fmt.Sprintf("%d files · %s · sort:%s · %s · %s · %s", stats.FileCount, humanize.Bytes(uint64(stats.TotalSize)), sortName, gitState, hiddenState, extState)
 
-	var hints string
+	hints := "↑↓ move  ←→/enter fold  spc select  s sort  e ext  ? help  ctrl+g save  q quit"
 	if m.focused == panelPreview {
-		hints = "↑↓ scroll preview  tab→tree  x hex  q quit"
-	} else {
-		hints = "↑↓ move  ←→/enter fold  spc select  s sort  e toggle ext  E reset ext  g git  H hidden  tab preview  ctrl+g generate  q quit"
+		hints = "↑↓ scroll preview  tab tree  x hex  ? help  q quit"
+	}
+	if m.width < 100 || m.height < 18 {
+		if m.focused == panelTree {
+			hints = "tab preview  spc select  s sort  ? help"
+		} else {
+			hints = "tab tree  ↑↓ scroll  x hex  ? help"
+		}
 	}
 
-	gap := m.width - len(info) - len(hints) - 2
-	if gap < 1 {
-		gap = 1
+	return styleStatusBar.Width(m.width).Render(composeStatusLine(m.width, info, hints))
+}
+
+func renderHelpBar(m Model) string {
+	summary := "Help: space toggle · a/A select dir/all · s sort · e/E extensions · g gitignore · H hidden · x hex · ctrl+g save"
+	if m.focused == panelPreview {
+		summary = "Help: tab tree · ↑/↓ scroll · pgup/pgdn jump · x hex · ctrl+g save"
 	}
-	return styleStatusBar.Width(m.width).Render(info + strings.Repeat(" ", gap) + hints)
+	return styleStatusBar.Width(m.width).Render(truncateText(summary, m.width-2))
 }
 
 // renderSaveBar renders the top row of the save dialog.
@@ -245,11 +270,7 @@ func renderSaveBar(m Model) string {
 	}
 	bar := "Save: " + strings.Join(chips, "  ")
 	hint := "Tab=cycle · Enter=save · Esc=cancel"
-	gap := m.width - lipgloss.Width(bar) - len(hint) - 2
-	if gap < 1 {
-		gap = 1
-	}
-	return styleStatusBar.Width(m.width).Render(bar + strings.Repeat(" ", gap) + hint)
+	return styleStatusBar.Width(m.width).Render(composeStatusLine(m.width, bar, hint))
 }
 
 // renderSaveFileLine renders the second row of the save dialog.
@@ -262,4 +283,45 @@ func renderSaveFileLine(m Model) string {
 		label = "  File (+ terminal): "
 	}
 	return styleStatusBar.Width(m.width).Render(label + m.fileInput.View())
+}
+
+func composeStatusLine(width int, left, right string) string {
+	contentWidth := width - 2
+	if contentWidth < 10 {
+		contentWidth = 10
+	}
+	left = truncateText(left, contentWidth)
+	right = truncateText(right, contentWidth)
+	if lipgloss.Width(left)+1+lipgloss.Width(right) > contentWidth {
+		right = truncateText(right, contentWidth/2)
+	}
+	if lipgloss.Width(left)+1+lipgloss.Width(right) > contentWidth {
+		left = truncateText(left, contentWidth-lipgloss.Width(right)-1)
+	}
+	gap := contentWidth - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 1 {
+		gap = 1
+	}
+	return left + strings.Repeat(" ", gap) + right
+}
+
+func truncateText(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= width {
+		return s
+	}
+	if width == 1 {
+		return "…"
+	}
+	return string(runes[:width-1]) + "…"
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

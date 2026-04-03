@@ -2,6 +2,7 @@ package renderer_test
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -93,5 +94,25 @@ func TestRender_HexDump(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "00000000") {
 		t.Error("hex dump should contain offset for binary files")
+	}
+}
+
+func TestRender_RelativePaths(t *testing.T) {
+	var buf bytes.Buffer
+	rootPath, err := filepath.Abs("../../testdata/fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = renderer.Render(&buf, makeState(), renderer.Options{
+		Format:        renderer.FormatText,
+		NoColor:       true,
+		RootPath:      rootPath,
+		RelativePaths: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "File: main.go") {
+		t.Fatal("expected relative file headers")
 	}
 }

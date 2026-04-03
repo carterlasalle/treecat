@@ -192,6 +192,10 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.applyFiltersAndRebuild(cursorPath)
 		return m, nil
 
+	case key.Matches(msg, keys.Help):
+		m.showHelp = !m.showHelp
+		return m, nil
+
 	case key.Matches(msg, keys.Confirm):
 		m.savePending = true
 		m.saveTarget = saveTerminal

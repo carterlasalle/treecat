@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -110,5 +111,32 @@ func TestModel_SaveDialogUsesFormatDefaultName(t *testing.T) {
 	m = updated.(Model)
 	if got := m.fileInput.Value(); got != "treecat.md" {
 		t.Fatalf("save dialog default = %q, want treecat.md", got)
+	}
+}
+
+func TestModel_HelpToggle(t *testing.T) {
+	m := newModel(loadFixtureTree(t), Options{Format: renderer.FormatTerminal})
+	updated, _ := handleKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+	m = updated.(Model)
+	if !m.showHelp {
+		t.Fatal("help should be visible after pressing ?")
+	}
+
+	updated, _ = handleKey(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+	m = updated.(Model)
+	if m.showHelp {
+		t.Fatal("help should hide after pressing ? again")
+	}
+}
+
+func TestRenderView_NarrowLayout(t *testing.T) {
+	m := newModel(loadFixtureTree(t), Options{Format: renderer.FormatTerminal})
+	m.width = 72
+	m.height = 20
+	m.focused = panelTree
+
+	out := renderView(m)
+	if strings.Count(out, "│") < 2 {
+		t.Fatal("expected bordered narrow layout output")
 	}
 }
