@@ -26,10 +26,8 @@ package main
 ```bash
 brew tap carterlasalle/treecat
 brew install treecat
-xattr -d com.apple.quarantine $(which treecat)
-codesign --force --deep -s - $(which treecat)
 ```
-Homebrew now needs to bypass macOS Gatekeeper
+`treecat` is now distributed as a Homebrew **formula** (not a cask), so Homebrew builds it from source and avoids the macOS quarantine/codesign workaround.
 
 **macOS — direct binary download**
 ```bash
@@ -42,11 +40,11 @@ curl -fsSL https://github.com/carterlasalle/treecat/releases/latest/download/tre
 sudo mv treecat /usr/local/bin/
 ```
 
-> **macOS Gatekeeper warning** — if you see *"cannot be opened because Apple cannot check it for malicious software"*, run:
+> **macOS Gatekeeper warning (direct download only)** — if you see *"cannot be opened because Apple cannot check it for malicious software"*, run:
 > ```bash
 > xattr -d com.apple.quarantine /usr/local/bin/treecat
 > ```
-> This removes the quarantine flag macOS applies to all internet-downloaded binaries. The binary is built from source in [public CI](https://github.com/carterlasalle/treecat/actions). 
+> This removes the quarantine flag macOS applies to internet-downloaded binaries. Homebrew formula installs should not need this.
 
 **Debian/Ubuntu**
 ```bash
@@ -179,13 +177,85 @@ Releases are fully automated:
 - **Release** triggers automatically when you push a `v*` tag:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+# replace X.Y.Z with the next semver release (for example: 1.2.3)
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 GoReleaser builds binaries for Linux/macOS/Windows, creates `.deb`/`.rpm`/`.apk` packages, publishes a GitHub Release, and pushes the Homebrew formula automatically.
 
 > **Note:** Add a `HOMEBREW_TAP_GITHUB_TOKEN` secret to your repo (Settings → Secrets → Actions) with a Personal Access Token that has `repo` scope on your `homebrew-treecat` repository.
+
+### Homebrew formula publishing checklist
+
+If your `homebrew-treecat` repo used to publish a cask, migrate it once to formula layout:
+
+```bash
+# in carterlasalle/homebrew-treecat
+mkdir -p Formula
+if [ -f Casks/treecat.rb ]; then
+  echo "Removing legacy Casks/treecat.rb"
+  git rm -f Casks/treecat.rb
+fi
+if [ -f Formula/treecat.rb ] && grep -Eq "^cask [\"']" Formula/treecat.rb; then
+  echo "Removing cask-based Formula/treecat.rb"
+  git rm -f Formula/treecat.rb
+fi
+if [ -d Casks ]; then
+  if [ -z "$(ls -A Casks)" ]; then
+    echo "Removing empty Casks/ directory"
+    rmdir Casks
+  else
+    echo "Leaving non-empty Casks/ directory for manual review"
+  fi
+fi
+```
+
+Do **not** move the old cask file into `Formula/`. A cask file starts with `cask "treecat" do` and cannot be loaded as a formula.
+If `Formula/treecat.rb` currently starts with `cask`, delete it and let the next release regenerate it as a formula.
+
+Your tap should end up like:
+
+```text
+homebrew-treecat/
+├── Formula/
+│   └── treecat.rb
+└── README.md
+```
+
+Make sure the default branch is writable by the token in `HOMEBREW_TAP_GITHUB_TOKEN`.
+
+Then verify each release updates the formula:
+
+```bash
+# in this repo
+# replace X.Y.Z with the next semver release (for example: 1.2.3)
+git tag vX.Y.Z
+git push origin vX.Y.Z
+
+# after the Release workflow finishes
+brew update
+brew tap carterlasalle/treecat
+brew info carterlasalle/treecat/treecat
+brew reinstall carterlasalle/treecat/treecat
+treecat --version
+```
+
+Expected result: the release workflow creates/updates `Formula/treecat.rb` in `homebrew-treecat`, and users install from the formula with:
+
+```bash
+brew install carterlasalle/treecat/treecat
+```
+
+If you previously installed the cask or have a stale local tap checkout, reset locally:
+
+```bash
+brew uninstall --cask treecat 2>/dev/null || true
+brew untap carterlasalle/treecat
+brew tap carterlasalle/treecat
+brew update
+brew install carterlasalle/treecat/treecat
+```
 
 ## License
 
