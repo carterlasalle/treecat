@@ -144,6 +144,9 @@ Run `treecat -i` to open the interactive file selector:
 | `a` | Select/deselect all direct children of dir |
 | `A` | Select/deselect entire tree (recursive) |
 | `s` | Cycle sort: name → size → lines → ext |
+| `e` | Toggle the current file's extension filter |
+| `E` | Reset extension filters |
+| `g` | Toggle `.gitignore` filtering |
 | `Tab` | Switch to preview panel |
 | `x` | Toggle hex dump (binary files) |
 | `H` | Toggle hidden files |
@@ -167,7 +170,7 @@ Run `treecat -i` to open the interactive file selector:
 | `Enter` | Confirm and generate output |
 | `Esc` | Cancel, return to tree |
 
-The extension filter bar shows all detected file types — it's display-only for now. Sorting by **size** (`s` twice) surfaces the largest files immediately — handy for catching accidentally included images or binaries.
+The extension filter bar shows all detected file types and updates live as you toggle file-type filters with `e`/`E`. Sorting by **size** (`s` twice) surfaces the largest files immediately — handy for catching accidentally included images or binaries.
 
 ## CI/CD
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/carterlasalle/treecat/internal/highlight"
@@ -14,7 +15,7 @@ import (
 func renderTerminal(w io.Writer, state *selector.State, opts Options) error {
 	if !opts.NoTree {
 		fmt.Fprintf(w, "Directory Structure:\n\n")
-		renderTree(w, state.Root, "", opts)
+		renderTree(w, state.Root, "", state.SortMode())
 		fmt.Fprintln(w)
 	}
 	if opts.NoContent {
@@ -29,12 +30,13 @@ func renderTerminal(w io.Writer, state *selector.State, opts Options) error {
 	return nil
 }
 
-func renderTree(w io.Writer, node *scanner.FileNode, prefix string, _ Options) {
+func renderTree(w io.Writer, node *scanner.FileNode, prefix string, sortMode selector.SortMode) {
 	if node.Depth == 0 {
 		fmt.Fprintf(w, "%s/\n", node.Name)
 	}
-	for i, child := range node.Children {
-		last := i == len(node.Children)-1
+	children := sortedTreeChildren(node.Children, sortMode)
+	for i, child := range children {
+		last := i == len(children)-1
 		connector := "├── "
 		childPrefix := prefix + "│   "
 		if last {
@@ -43,9 +45,48 @@ func renderTree(w io.Writer, node *scanner.FileNode, prefix string, _ Options) {
 		}
 		fmt.Fprintf(w, "%s%s%s\n", prefix, connector, child.Name)
 		if child.IsDir {
-			renderTree(w, child, childPrefix, Options{})
+			renderTree(w, child, childPrefix, sortMode)
 		}
 	}
+}
+
+func sortedTreeChildren(children []*scanner.FileNode, mode selector.SortMode) []*scanner.FileNode {
+	cp := make([]*scanner.FileNode, len(children))
+	copy(cp, children)
+	switch mode {
+	case selector.SortSize:
+		sort.Slice(cp, func(i, j int) bool {
+			if cp[i].IsDir != cp[j].IsDir {
+				return cp[i].IsDir
+			}
+			return cp[i].Size > cp[j].Size
+		})
+	case selector.SortLines:
+		sort.Slice(cp, func(i, j int) bool {
+			if cp[i].IsDir != cp[j].IsDir {
+				return cp[i].IsDir
+			}
+			return cp[i].Lines > cp[j].Lines
+		})
+	case selector.SortExt:
+		sort.Slice(cp, func(i, j int) bool {
+			if cp[i].IsDir != cp[j].IsDir {
+				return cp[i].IsDir
+			}
+			if cp[i].Ext != cp[j].Ext {
+				return cp[i].Ext < cp[j].Ext
+			}
+			return cp[i].Name < cp[j].Name
+		})
+	default:
+		sort.Slice(cp, func(i, j int) bool {
+			if cp[i].IsDir != cp[j].IsDir {
+				return cp[i].IsDir
+			}
+			return cp[i].Name < cp[j].Name
+		})
+	}
+	return cp
 }
 
 func writeFileContent(w io.Writer, node *scanner.FileNode, opts Options) error {

@@ -121,6 +121,9 @@ func renderTreePanel(m Model, width int) string {
 }
 
 func renderPreviewPanel(m Model, _ int) string {
+	if len(m.flatNodes) == 0 {
+		return stylePanelTitle.Render("Preview") + "\n\n" + styleAccent.Render("No files match the current filters")
+	}
 	if m.cursor >= len(m.flatNodes) {
 		return ""
 	}
@@ -135,7 +138,10 @@ func renderPreviewPanel(m Model, _ int) string {
 
 	if node.IsBinary {
 		if m.showHex {
-			data, _ := os.ReadFile(node.Path)
+			data, err := os.ReadFile(node.Path)
+			if err != nil {
+				return title + err.Error()
+			}
 			allLines := strings.Split(highlight.HexDump(data), "\n")
 			return title + scrolledLines(allLines, m.previewScroll, m.height-8)
 		}
@@ -178,27 +184,45 @@ func scrolledLines(lines []string, offset, maxVisible int) string {
 
 func renderExtBar(m Model) string {
 	var chips []string
+	active := 0
 	for _, ext := range m.extOrder {
 		if m.extSelected[ext] {
+			active++
 			chips = append(chips, styleExtChipOn.Render(ext))
 		} else {
 			chips = append(chips, styleExtChipOff.Render(ext))
 		}
 	}
 	bar := strings.Join(chips, " ")
-	return styleStatusBar.Width(m.width).Render("Ext: " + bar)
+	prefix := fmt.Sprintf("Ext: %d/%d active", active, len(m.extOrder))
+	if bar != "" {
+		prefix += " · " + bar
+	}
+	return styleStatusBar.Width(m.width).Render(prefix)
 }
 
 func renderStatusBar(m Model) string {
 	stats := m.state.Stats()
 	sortName := m.sortNames[m.sortMode]
-	info := fmt.Sprintf("%d files · %s · sort:%s", stats.FileCount, humanize.Bytes(uint64(stats.TotalSize)), sortName)
+	gitState := "git:on"
+	if !m.respectGitignore {
+		gitState = "git:off"
+	}
+	hiddenState := "hidden:on"
+	if !m.showHidden {
+		hiddenState = "hidden:off"
+	}
+	extState := "ext:all"
+	if m.hasActiveExtensionFilter() {
+		extState = "ext:filtered"
+	}
+	info := fmt.Sprintf("%d files · %s · sort:%s · %s · %s · %s", stats.FileCount, humanize.Bytes(uint64(stats.TotalSize)), sortName, gitState, hiddenState, extState)
 
 	var hints string
 	if m.focused == panelPreview {
-		hints = "↑↓ scroll preview  tab→tree  q quit"
+		hints = "↑↓ scroll preview  tab→tree  x hex  q quit"
 	} else {
-		hints = "↑↓ move  ←→/enter fold  spc select  s sort  tab preview  ctrl+g generate  q quit"
+		hints = "↑↓ move  ←→/enter fold  spc select  s sort  e toggle ext  E reset ext  g git  H hidden  tab preview  ctrl+g generate  q quit"
 	}
 
 	gap := m.width - len(info) - len(hints) - 2

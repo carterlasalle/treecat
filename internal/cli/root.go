@@ -49,7 +49,46 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 				return err
 			}
 
-			// Scan
+			gitignorePath := ""
+			if !noIgnore {
+				gip := filepath.Join(abs, ".gitignore")
+				if _, statErr := os.Stat(gip); statErr == nil {
+					gitignorePath = gip
+				}
+			}
+
+			var maxSizeBytes int64
+			if maxSizeStr != "" {
+				maxSizeBytes, err = parseSize(maxSizeStr)
+				if err != nil {
+					return fmt.Errorf("invalid --max-size: %w", err)
+				}
+			}
+
+			exts := normaliseExts(extensions)
+			sort := parseSortMode(sortMode)
+
+			if interactive {
+				source, err := scanner.Scan(abs, scanner.Options{
+					MaxDepth: maxDepth,
+					Hidden:   true,
+				})
+				if err != nil {
+					return fmt.Errorf("scan: %w", err)
+				}
+				return tui.Run(source, tui.Options{
+					Output:        w,
+					Format:        parseFormat(outputFmt),
+					HexBinary:     hexBinary,
+					GitignorePath: gitignorePath,
+					NoIgnore:      noIgnore,
+					ShowHidden:    hidden,
+					Extensions:    exts,
+					MaxSize:       maxSizeBytes,
+					SortMode:      sort,
+				})
+			}
+
 			tree, err := scanner.Scan(abs, scanner.Options{
 				MaxDepth: maxDepth,
 				Hidden:   hidden,
@@ -58,45 +97,18 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 				return fmt.Errorf("scan: %w", err)
 			}
 
-			// Filter
-			gitignorePath := ""
-			if !noIgnore {
-				gip := filepath.Join(abs, ".gitignore")
-				if _, statErr := os.Stat(gip); statErr == nil {
-					gitignorePath = gip
-				}
-			}
-			var maxSizeBytes int64
-			if maxSizeStr != "" {
-				maxSizeBytes, err = parseSize(maxSizeStr)
-				if err != nil {
-					return fmt.Errorf("invalid --max-size: %w", err)
-				}
-			}
-			exts := normaliseExts(extensions)
 			filtered := filter.Apply(tree, filter.Options{
-				Extensions:    exts,
-				GitignorePath: gitignorePath,
-				NoIgnore:      noIgnore,
-				MaxSize:       maxSizeBytes,
+				Extensions:      exts,
+				LimitExtensions: len(exts) > 0,
+				GitignorePath:   gitignorePath,
+				NoIgnore:        noIgnore,
+				MaxSize:         maxSizeBytes,
+				IncludeHidden:   hidden,
 			})
 
-			// Selector
 			state := selector.New(filtered)
-			if sortMode != "" {
-				state.Sort(parseSortMode(sortMode))
-			}
+			state.Sort(sort)
 
-			// Interactive mode
-			if interactive {
-				return tui.Run(state, tui.Options{
-					Output:    w,
-					Format:    parseFormat(outputFmt),
-					HexBinary: hexBinary,
-				})
-			}
-
-			// Output writer
 			out := w
 			if outputFile != "" {
 				f, err := os.Create(outputFile)

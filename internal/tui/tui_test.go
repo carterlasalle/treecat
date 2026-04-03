@@ -9,18 +9,16 @@ import (
 
 	"github.com/carterlasalle/treecat/internal/renderer"
 	"github.com/carterlasalle/treecat/internal/scanner"
-	"github.com/carterlasalle/treecat/internal/selector"
 	"github.com/carterlasalle/treecat/internal/tui"
 )
 
 func makeModel(t *testing.T) tui.Model {
 	t.Helper()
-	root, err := scanner.Scan("../../testdata/fixture", scanner.Options{})
+	root, err := scanner.Scan("../../testdata/fixture", scanner.Options{Hidden: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := selector.New(root)
-	return tui.NewModel(state, tui.Options{Format: renderer.FormatTerminal})
+	return tui.NewModel(root, tui.Options{Format: renderer.FormatTerminal})
 }
 
 func TestTUI_RendersWithoutPanic(t *testing.T) {

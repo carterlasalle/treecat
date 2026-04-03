@@ -102,6 +102,9 @@ func (s *State) applySortMode(nodes *[]*scanner.FileNode) {
 // Sort sets the sort mode.
 func (s *State) Sort(mode SortMode) { s.sortMode = mode }
 
+// SortMode returns the current sort mode.
+func (s *State) SortMode() SortMode { return s.sortMode }
+
 // Extensions returns a map of extension → file count across the whole tree.
 func (s *State) Extensions() map[string]int {
 	out := map[string]int{}

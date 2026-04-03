@@ -11,13 +11,9 @@ import (
 )
 
 func renderText(w io.Writer, state *selector.State, opts Options) error {
-	plainOpts := opts
-	plainOpts.NoColor = true
-	plainOpts.NoSyntax = true
-
 	if !opts.NoTree {
 		fmt.Fprintf(w, "Directory Structure:\n\n")
-		renderTree(w, state.Root, "", plainOpts)
+		renderTree(w, state.Root, "", state.SortMode())
 		fmt.Fprintln(w)
 	}
 	if opts.NoContent {
@@ -27,7 +23,10 @@ func renderText(w io.Writer, state *selector.State, opts Options) error {
 		fmt.Fprintf(w, "\n---\nFile: %s\n---\n\n", node.Path)
 		if node.IsBinary {
 			if opts.HexBinary {
-				data, _ := os.ReadFile(node.Path)
+				data, err := os.ReadFile(node.Path)
+				if err != nil {
+					return err
+				}
 				fmt.Fprint(w, highlight.HexDump(data))
 			} else {
 				fmt.Fprintf(w, "[binary — %d bytes]\n", node.Size)

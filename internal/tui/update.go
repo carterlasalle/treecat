@@ -19,12 +19,12 @@ func updateModel(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Save dialog intercepts all keys while open.
 	if m.savePending {
 		return handleSaveDialog(m, msg)
 	}
 
 	panelH := m.treePanelH()
+	cursorPath := m.currentCursorPath()
 
 	switch {
 	case key.Matches(msg, keys.Quit):
@@ -35,22 +35,22 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.previewScroll > 0 {
 				m.previewScroll--
 			}
-		} else {
-			if m.cursor > 0 {
-				m.cursor--
-				m.previewScroll = 0
-			}
+		} else if m.cursor > 0 {
+			m.cursor--
+			m.previewScroll = 0
+			m.clampScroll()
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.Down):
 		if m.focused == panelPreview {
 			m.previewScroll++
-		} else {
-			if m.cursor < len(m.flatNodes)-1 {
-				m.cursor++
-				m.previewScroll = 0
-			}
+		} else if m.cursor < len(m.flatNodes)-1 {
+			m.cursor++
+			m.previewScroll = 0
+			m.clampScroll()
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.PageUp):
 		if m.focused == panelPreview {
@@ -64,7 +64,9 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 			}
 			m.previewScroll = 0
+			m.clampScroll()
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.PageDown):
 		if m.focused == panelPreview {
@@ -78,36 +80,50 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 			}
 			m.previewScroll = 0
+			m.clampScroll()
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.Toggle):
 		if m.cursor < len(m.flatNodes) {
 			m.state.Toggle(m.flatNodes[m.cursor].node)
+			m.syncStateMaps()
+			m.rebuildFlat()
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.Expand):
 		if m.cursor < len(m.flatNodes) {
 			n := m.flatNodes[m.cursor].node
 			if n.IsDir {
 				n.Collapsed = !n.Collapsed
+				m.syncStateMaps()
+				m.rebuildFlat()
 			}
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.Left):
 		if m.cursor < len(m.flatNodes) {
 			n := m.flatNodes[m.cursor].node
 			if n.IsDir && !n.Collapsed {
 				n.Collapsed = true
+				m.syncStateMaps()
+				m.rebuildFlat()
 			}
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.Right):
 		if m.cursor < len(m.flatNodes) {
 			n := m.flatNodes[m.cursor].node
 			if n.IsDir && n.Collapsed {
 				n.Collapsed = false
+				m.syncStateMaps()
+				m.rebuildFlat()
 			}
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.SelectAll):
 		if m.cursor < len(m.flatNodes) {
@@ -117,15 +133,22 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				for _, c := range n.Children {
 					c.Selected = target
 				}
+				m.syncStateMaps()
+				m.rebuildFlat()
 			}
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.SelectAllR):
 		m.state.Toggle(m.state.Root)
+		m.syncStateMaps()
+		m.rebuildFlat()
+		return m, nil
 
 	case key.Matches(msg, keys.Sort):
 		m.sortMode = (m.sortMode + 1) % 4
-		m.state.Sort(m.sortMode)
+		m.applyFiltersAndRebuild(cursorPath)
+		return m, nil
 
 	case key.Matches(msg, keys.Tab):
 		if m.focused == panelTree {
@@ -133,24 +156,50 @@ func handleKey(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.focused = panelTree
 		}
+		return m, nil
 
 	case key.Matches(msg, keys.ToggleHex):
 		m.showHex = !m.showHex
 		m.previewScroll = 0
+		return m, nil
 
 	case key.Matches(msg, keys.ToggleGit):
-		// gitignore toggling requires rescan; noted for future enhancement
+		m.respectGitignore = !m.respectGitignore
+		m.previewScroll = 0
+		m.applyFiltersAndRebuild(cursorPath)
+		return m, nil
+
+	case key.Matches(msg, keys.ToggleHide):
+		m.showHidden = !m.showHidden
+		m.previewScroll = 0
+		m.applyFiltersAndRebuild(cursorPath)
+		return m, nil
+
+	case key.Matches(msg, keys.ToggleExt):
+		if m.cursor < len(m.flatNodes) {
+			n := m.flatNodes[m.cursor].node
+			if !n.IsDir && n.Ext != "" {
+				m.extSelected[n.Ext] = !m.extSelected[n.Ext]
+				m.previewScroll = 0
+				m.applyFiltersAndRebuild(cursorPath)
+			}
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.ResetExt):
+		m.setAllExtensions(true)
+		m.previewScroll = 0
+		m.applyFiltersAndRebuild(cursorPath)
+		return m, nil
 
 	case key.Matches(msg, keys.Confirm):
-		// Open save dialog instead of immediately quitting.
 		m.savePending = true
 		m.saveTarget = saveTerminal
-		m.fileInput.SetValue("output.md")
+		m.fileInput.SetValue(defaultOutputName(m.opts.Format))
 		m.fileInput.CursorEnd()
 		return m, nil
 	}
 
-	m.rebuildFlat()
 	return m, nil
 }
 
@@ -178,7 +227,6 @@ func handleSaveDialog(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	default:
-		// Forward typing/editing keys to the file path input.
 		if m.saveTarget != saveTerminal {
 			var cmd tea.Cmd
 			m.fileInput, cmd = m.fileInput.Update(msg)

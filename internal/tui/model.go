@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/carterlasalle/treecat/internal/filter"
 	"github.com/carterlasalle/treecat/internal/renderer"
 	"github.com/carterlasalle/treecat/internal/scanner"
 	"github.com/carterlasalle/treecat/internal/selector"
@@ -24,9 +25,15 @@ const (
 
 // Options passed from CLI to TUI.
 type Options struct {
-	Output    io.Writer
-	Format    renderer.Format
-	HexBinary bool
+	Output        io.Writer
+	Format        renderer.Format
+	HexBinary     bool
+	GitignorePath string
+	NoIgnore      bool
+	ShowHidden    bool
+	Extensions    []string
+	MaxSize       int64
+	SortMode      selector.SortMode
 }
 
 type panel int
@@ -44,8 +51,9 @@ type flatNode struct {
 
 // Model is the Bubble Tea model for the treecat TUI.
 type Model struct {
-	state *selector.State
-	opts  Options
+	source *scanner.FileNode
+	state  *selector.State
+	opts   Options
 
 	width, height int
 	focused       panel
@@ -61,8 +69,13 @@ type Model struct {
 	sortMode  selector.SortMode
 	sortNames []string
 
-	showHex bool
-	done    bool
+	showHex          bool
+	showHidden       bool
+	respectGitignore bool
+	done             bool
+
+	selectedByPath  map[string]bool
+	collapsedByPath map[string]bool
 
 	// save dialog
 	savePending bool
@@ -71,34 +84,48 @@ type Model struct {
 }
 
 // NewModel creates a Model (exported for tests).
-func NewModel(state *selector.State, opts Options) Model {
-	return newModel(state, opts)
+func NewModel(source *scanner.FileNode, opts Options) Model {
+	return newModel(source, opts)
 }
 
-func newModel(state *selector.State, opts Options) Model {
-	exts := state.Extensions()
+func newModel(source *scanner.FileNode, opts Options) Model {
+	exts := collectExtensions(source)
 	extOrder := make([]string, 0, len(exts))
 	extSel := make(map[string]bool, len(exts))
+	selectedExts := make(map[string]struct{}, len(opts.Extensions))
+	for _, ext := range opts.Extensions {
+		selectedExts[ext] = struct{}{}
+	}
+	limitExts := len(opts.Extensions) > 0
 	for e := range exts {
 		extOrder = append(extOrder, e)
-		extSel[e] = true
+		if limitExts {
+			_, extSel[e] = selectedExts[e]
+		} else {
+			extSel[e] = true
+		}
 	}
 	sort.Strings(extOrder)
 
 	fi := textinput.New()
-	fi.Placeholder = "output.md"
+	fi.Placeholder = defaultOutputName(opts.Format)
 	fi.CharLimit = 256
 	fi.Width = 40
 
 	m := Model{
-		state:       state,
-		opts:        opts,
-		extOrder:    extOrder,
-		extSelected: extSel,
-		sortNames:   []string{"name", "size", "lines", "ext"},
-		fileInput:   fi,
+		source:           source,
+		opts:             opts,
+		extOrder:         extOrder,
+		extSelected:      extSel,
+		sortMode:         opts.SortMode,
+		sortNames:        []string{"name", "size", "lines", "ext"},
+		showHidden:       opts.ShowHidden,
+		respectGitignore: opts.GitignorePath != "" && !opts.NoIgnore,
+		selectedByPath:   map[string]bool{},
+		collapsedByPath:  map[string]bool{},
+		fileInput:        fi,
 	}
-	m.rebuildFlat()
+	m.applyFiltersAndRebuild("")
 	return m
 }
 
@@ -119,7 +146,9 @@ func (m *Model) treePanelH() int {
 // rebuildFlat re-flattens the visible tree into m.flatNodes and re-clamps scroll.
 func (m *Model) rebuildFlat() {
 	m.flatNodes = nil
-	m.flattenNode(m.state.Root, 0)
+	if m.state != nil && m.state.Root != nil {
+		m.flattenNode(m.state.Root, 0)
+	}
 	m.clampScroll()
 }
 
@@ -132,6 +161,147 @@ func (m *Model) flattenNode(node *scanner.FileNode, depth int) {
 		for _, c := range children {
 			m.flattenNode(c, depth+1)
 		}
+	}
+}
+
+func collectExtensions(root *scanner.FileNode) map[string]int {
+	out := map[string]int{}
+	var walk func(*scanner.FileNode)
+	walk = func(node *scanner.FileNode) {
+		if node == nil {
+			return
+		}
+		if !node.IsDir {
+			out[node.Ext]++
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	walk(root)
+	return out
+}
+
+func (m *Model) enabledExtensions() []string {
+	if !m.hasActiveExtensionFilter() {
+		return nil
+	}
+	out := make([]string, 0, len(m.extOrder))
+	for _, ext := range m.extOrder {
+		if m.extSelected[ext] {
+			out = append(out, ext)
+		}
+	}
+	return out
+}
+
+func (m *Model) hasActiveExtensionFilter() bool {
+	for _, ext := range m.extOrder {
+		if !m.extSelected[ext] {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) currentCursorPath() string {
+	if m.cursor >= 0 && m.cursor < len(m.flatNodes) {
+		return m.flatNodes[m.cursor].node.Path
+	}
+	return ""
+}
+
+func (m *Model) syncStateMaps() {
+	if m.state == nil || m.state.Root == nil {
+		return
+	}
+	var walk func(*scanner.FileNode)
+	walk = func(node *scanner.FileNode) {
+		m.selectedByPath[node.Path] = node.Selected
+		if node.IsDir {
+			m.collapsedByPath[node.Path] = node.Collapsed
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	walk(m.state.Root)
+}
+
+func (m *Model) restoreNodeState(node *scanner.FileNode) {
+	if selected, ok := m.selectedByPath[node.Path]; ok {
+		node.Selected = selected
+	}
+	if node.IsDir {
+		if collapsed, ok := m.collapsedByPath[node.Path]; ok {
+			node.Collapsed = collapsed
+		}
+	}
+	for _, child := range node.Children {
+		m.restoreNodeState(child)
+	}
+}
+
+func (m *Model) restoreCursor(path string) {
+	if path != "" {
+		for i, fn := range m.flatNodes {
+			if fn.node.Path == path {
+				m.cursor = i
+				m.clampScroll()
+				return
+			}
+		}
+	}
+	if len(m.flatNodes) == 0 {
+		m.cursor = 0
+		m.treeScroll = 0
+		return
+	}
+	if m.cursor >= len(m.flatNodes) {
+		m.cursor = len(m.flatNodes) - 1
+	}
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+	m.clampScroll()
+}
+
+func (m *Model) applyFiltersAndRebuild(cursorPath string) {
+	m.syncStateMaps()
+	if cursorPath == "" {
+		cursorPath = m.currentCursorPath()
+	}
+
+	filtered := filter.Apply(m.source, filter.Options{
+		Extensions:      m.enabledExtensions(),
+		LimitExtensions: m.hasActiveExtensionFilter(),
+		GitignorePath:   m.opts.GitignorePath,
+		NoIgnore:        !m.respectGitignore,
+		MaxSize:         m.opts.MaxSize,
+		IncludeHidden:   m.showHidden,
+	})
+	state := selector.New(filtered)
+	m.restoreNodeState(state.Root)
+	state.Sort(m.sortMode)
+	m.state = state
+	m.rebuildFlat()
+	m.restoreCursor(cursorPath)
+}
+
+func (m *Model) setAllExtensions(enabled bool) {
+	for _, ext := range m.extOrder {
+		m.extSelected[ext] = enabled
+	}
+}
+
+func defaultOutputName(format renderer.Format) string {
+	switch format {
+	case renderer.FormatMarkdown:
+		return "treecat.md"
+	case renderer.FormatText:
+		return "treecat.txt"
+	default:
+		return "treecat.txt"
 	}
 }
 
@@ -207,8 +377,8 @@ func (m Model) View() string {
 }
 
 // Run starts the Bubble Tea program and renders output when the user confirms.
-func Run(state *selector.State, opts Options) error {
-	m := newModel(state, opts)
+func Run(source *scanner.FileNode, opts Options) error {
+	m := newModel(source, opts)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {
@@ -226,21 +396,21 @@ func Run(state *selector.State, opts Options) error {
 
 	filePath := fm.fileInput.Value()
 	if filePath == "" {
-		filePath = "output.md"
+		filePath = defaultOutputName(opts.Format)
 	}
 
 	switch fm.saveTarget {
 	case saveTerminal:
-		return renderer.Render(opts.Output, state, renderOpts)
+		return renderer.Render(opts.Output, fm.state, renderOpts)
 
 	case saveFile:
-		return renderToFile(filePath, state, renderOpts)
+		return renderToFile(filePath, fm.state, renderOpts)
 
 	case saveBoth:
-		if err := renderer.Render(opts.Output, state, renderOpts); err != nil {
+		if err := renderer.Render(opts.Output, fm.state, renderOpts); err != nil {
 			return err
 		}
-		return renderToFile(filePath, state, renderOpts)
+		return renderToFile(filePath, fm.state, renderOpts)
 	}
 	return nil
 }
