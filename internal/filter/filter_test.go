@@ -70,6 +70,31 @@ func TestFilter_NoIgnore(t *testing.T) {
 	}
 }
 
+func TestFilter_HiddenFiles(t *testing.T) {
+	root := scanFixture(t)
+	filtered := filter.Apply(root, filter.Options{IncludeHidden: false})
+	if findNode(filtered, ".hidden") != nil {
+		t.Error("hidden directories should be filtered when IncludeHidden=false")
+	}
+}
+
+func TestFilter_PrunesEmptyDirs(t *testing.T) {
+	root := &scanner.FileNode{
+		Name:  "root",
+		Path:  "/tmp/root",
+		IsDir: true,
+		Children: []*scanner.FileNode{{
+			Name:  "empty",
+			Path:  "/tmp/root/empty",
+			IsDir: true,
+		}},
+	}
+	filtered := filter.Apply(root, filter.Options{})
+	if findNode(filtered, "empty") != nil {
+		t.Error("empty directories should be pruned after filtering")
+	}
+}
+
 func assertOnlyExt(t *testing.T, node *scanner.FileNode, ext string) {
 	t.Helper()
 	if node == nil {

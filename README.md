@@ -88,6 +88,12 @@ Flags:
       --no-color         disable ANSI colors
       --no-syntax        disable syntax highlighting
   -i, --interactive      launch interactive TUI
+      --relative         render file headers relative to the scanned root
+
+Commands:
+  completion [shell]     generate shell completions
+  man                    generate a roff man page
+  version                print version information
 ```
 
 ## Examples
@@ -105,12 +111,67 @@ treecat . -e .go
 # Show biggest files first (useful for spotting accidentally included large files)
 treecat . -s size
 
-# Include hidden files, ignore .gitignore
-treecat . --hidden --no-ignore
+# Use relative file headers for shareable output
+treecat . --relative --no-color --no-syntax
+
+# Generate shell completions or a man page
+treecat completion zsh > ~/.zsh/completions/_treecat
+treecat man > treecat.1
 
 # Interactive file selection TUI
 treecat . -i
 ```
+
+## Compatibility and stability
+
+`treecat` follows semantic versioning for user-facing CLI behavior. Patch releases should only fix bugs. Minor releases may add flags, commands, or output improvements without breaking existing invocations. Breaking changes to flags, command names, or output defaults should be reserved for major releases and called out explicitly in release notes.
+
+For script-friendly usage, prefer these stable entry points:
+
+- `treecat [path] [flags]`
+- `treecat completion <shell>`
+- `treecat man`
+- `treecat version`
+
+## Shell completion and man pages
+
+```bash
+# bash
+treecat completion bash > /etc/bash_completion.d/treecat
+
+# zsh
+mkdir -p ~/.zsh/completions
+treecat completion zsh > ~/.zsh/completions/_treecat
+
+# fish
+treecat completion fish > ~/.config/fish/completions/treecat.fish
+
+# PowerShell
+treecat completion powershell > treecat.ps1
+
+# man page
+treecat man > treecat.1
+sudo install -m 0644 treecat.1 /usr/local/share/man/man1/treecat.1
+```
+
+## Install verification matrix
+
+After installing from any release channel, verify the package the same way:
+
+```bash
+treecat version
+treecat --help
+treecat completion bash >/dev/null
+treecat man >/dev/null
+treecat . --tree-only --no-color
+```
+
+Recommended spot checks by channel:
+
+- **Homebrew:** `brew info carterlasalle/treecat/treecat && treecat version`
+- **Direct tarball:** confirm the extracted `treecat` binary is on your `PATH`
+- **`.deb` / `.rpm` / `.apk`:** verify the package manager install succeeded, then run the common checks above
+- **`go install`:** confirm the binary under `$(go env GOPATH)/bin` or `$(go env GOBIN)` is the expected version
 
 ## Interactive TUI
 
@@ -144,9 +205,13 @@ Run `treecat -i` to open the interactive file selector:
 | `a` | Select/deselect all direct children of dir |
 | `A` | Select/deselect entire tree (recursive) |
 | `s` | Cycle sort: name → size → lines → ext |
+| `e` | Toggle the current file's extension filter |
+| `E` | Reset extension filters |
+| `g` | Toggle `.gitignore` filtering |
 | `Tab` | Switch to preview panel |
 | `x` | Toggle hex dump (binary files) |
 | `H` | Toggle hidden files |
+| `?` | Toggle help summary |
 | `ctrl+g` | Open save dialog |
 | `q` / `Esc` | Quit |
 
@@ -167,7 +232,25 @@ Run `treecat -i` to open the interactive file selector:
 | `Enter` | Confirm and generate output |
 | `Esc` | Cancel, return to tree |
 
-The extension filter bar shows all detected file types — it's display-only for now. Sorting by **size** (`s` twice) surfaces the largest files immediately — handy for catching accidentally included images or binaries.
+The extension filter bar shows all detected file types and updates live as you toggle file-type filters with `e`/`E`. Sorting by **size** (`s` twice) surfaces the largest files immediately — handy for catching accidentally included images or binaries.
+
+### Accessibility and terminal notes
+
+- `?` toggles an in-app help summary.
+- Narrow terminals automatically switch to a single-panel layout; use `Tab` to swap between tree and preview.
+- `--no-color` disables ANSI colors in exported output for accessibility, copy/paste, and CI logs.
+- `NO_COLOR=1 treecat ...` is also respected in non-interactive mode.
+- For the most predictable screen-reader and plain-text behavior, use `--no-color --no-syntax --output txt`.
+
+### Diagnostics and bug reports
+
+When reporting an issue, include:
+
+- `treecat version`
+- your install source (Homebrew, tarball, package, or `go install`)
+- your operating system and terminal emulator
+- the exact command you ran
+- whether the issue reproduces with `--no-color --no-syntax`
 
 ## CI/CD
 

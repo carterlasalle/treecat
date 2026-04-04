@@ -89,35 +89,47 @@ func readMeta(path string) (lines, chars int64, binary bool) {
 	}
 	defer f.Close()
 
-	buf := make([]byte, binaryCheckBytes)
-	n, err := f.Read(buf)
-	if err != nil && err != io.EOF {
-		return 0, 0, false
-	}
-	buf = buf[:n]
+	buf := make([]byte, 32*1024)
+	inspected := 0
+	var last byte
+	hasData := false
 
-	// Binary detection: null bytes = binary
-	for _, b := range buf {
-		if b == 0 {
-			return 0, 0, true
+	for {
+		n, err := f.Read(buf)
+		if n > 0 {
+			chunk := buf[:n]
+			hasData = true
+			chars += int64(n)
+			for _, b := range chunk {
+				if b == '\n' {
+					lines++
+				}
+				last = b
+			}
+
+			if inspected < binaryCheckBytes {
+				limit := n
+				remaining := binaryCheckBytes - inspected
+				if limit > remaining {
+					limit = remaining
+				}
+				for _, b := range chunk[:limit] {
+					if b == 0 {
+						return 0, 0, true
+					}
+				}
+				inspected += limit
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, 0, false
 		}
 	}
 
-	// Count lines/chars for whole file by re-reading from start
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return 0, 0, false
-	}
-	all, err := io.ReadAll(f)
-	if err != nil {
-		return 0, 0, false
-	}
-	chars = int64(len(all))
-	for _, b := range all {
-		if b == '\n' {
-			lines++
-		}
-	}
-	if chars > 0 && all[len(all)-1] != '\n' {
+	if hasData && last != '\n' {
 		lines++ // count final line without trailing newline
 	}
 	return lines, chars, false

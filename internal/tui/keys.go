@@ -17,6 +17,8 @@ type keyMap struct {
 	ToggleGit  key.Binding
 	ToggleHide key.Binding
 	ToggleHex  key.Binding
+	ToggleExt  key.Binding
+	ResetExt   key.Binding
 	Tab        key.Binding
 	Confirm    key.Binding
 	Quit       key.Binding
@@ -24,24 +26,24 @@ type keyMap struct {
 }
 
 var keys = keyMap{
-	Up:       key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-	Down:     key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-	Left:     key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "collapse")),
-	Right:    key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "expand")),
-	PageUp:   key.NewBinding(key.WithKeys("pgup", "ctrl+u"), key.WithHelp("pgup/^U", "page up")),
-	PageDown: key.NewBinding(key.WithKeys("pgdown", "ctrl+d"), key.WithHelp("pgdn/^D", "page dn")),
-	Toggle:   key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "toggle")),
-	Expand:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "collapse/expand")),
-	// h/l are now left/right; H = toggle hidden; x = hex
+	Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+	Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+	Left:       key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "collapse")),
+	Right:      key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "expand")),
+	PageUp:     key.NewBinding(key.WithKeys("pgup", "ctrl+u"), key.WithHelp("pgup/^U", "page up")),
+	PageDown:   key.NewBinding(key.WithKeys("pgdown", "ctrl+d"), key.WithHelp("pgdn/^D", "page dn")),
+	Toggle:     key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "toggle")),
+	Expand:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "collapse/expand")),
 	SelectAll:  key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "select dir")),
 	SelectAllR: key.NewBinding(key.WithKeys("A"), key.WithHelp("A", "select all")),
 	Sort:       key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sort")),
 	ToggleGit:  key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "gitignore")),
 	ToggleHide: key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "hidden files")),
 	ToggleHex:  key.NewBinding(key.WithKeys("x"), key.WithHelp("x", "hex dump")),
+	ToggleExt:  key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "toggle ext")),
+	ResetExt:   key.NewBinding(key.WithKeys("E"), key.WithHelp("E", "reset ext")),
 	Tab:        key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch panel")),
-	// ctrl+c is intercepted by Bubble Tea before reaching the model; use ctrl+g to confirm
-	Confirm: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("ctrl+g", "generate")),
-	Quit:    key.NewBinding(key.WithKeys("q", "esc"), key.WithHelp("q/esc", "quit")),
-	Help:    key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+	Confirm:    key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("ctrl+g", "generate")),
+	Quit:       key.NewBinding(key.WithKeys("q", "esc"), key.WithHelp("q/esc", "quit")),
+	Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 }
