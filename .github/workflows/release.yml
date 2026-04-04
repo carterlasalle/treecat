@@ -81,6 +81,6 @@ jobs:
         run: gh release upload "${GITHUB_REF_NAME}" dist/treecat.spdx.json --clobber
 
       - name: Attest checksums manifest
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/checksums.txt
