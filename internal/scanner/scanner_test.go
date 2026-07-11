@@ -1,6 +1,7 @@
 package scanner_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -91,6 +92,28 @@ func TestScan_MaxDepth(t *testing.T) {
 	}
 	if len(srcNode.Children) != 0 {
 		t.Error("src children should not be scanned at MaxDepth=1")
+	}
+}
+
+func TestScan_SkipsSymlinksOutsideRoot(t *testing.T) {
+	rootDir := t.TempDir()
+	externalDir := t.TempDir()
+	externalFile := filepath.Join(externalDir, "secret.txt")
+	if err := os.WriteFile(externalFile, []byte("outside root"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	linkPath := filepath.Join(rootDir, "linked-secret.txt")
+	if err := os.Symlink(externalFile, linkPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	root, err := scanner.Scan(rootDir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findNode(root, "linked-secret.txt") != nil {
+		t.Fatal("scanner must not include a symlink that can escape the requested root")
 	}
 }
 

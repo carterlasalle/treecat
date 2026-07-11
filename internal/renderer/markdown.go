@@ -12,26 +12,37 @@ import (
 
 func renderMarkdown(w io.Writer, state *selector.State, opts Options) error {
 	if !opts.NoTree {
-		fmt.Fprintf(w, "## Directory Structure\n\n")
-		fmt.Fprint(w, "```\n")
-		renderTree(w, state.Root, "", state.SortMode())
-		fmt.Fprintf(w, "```\n\n")
+		if _, err := fmt.Fprint(w, "## Directory Structure\n\n```\n"); err != nil {
+			return err
+		}
+		if err := renderTree(w, state.Root, "", state.SortMode()); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprint(w, "```\n\n"); err != nil {
+			return err
+		}
 	}
 	if opts.NoContent {
 		return nil
 	}
 	for _, node := range state.Selected() {
 		lang := langFromExt(node.Ext)
-		fmt.Fprintf(w, "### File: `%s`\n\n", displayPath(node.Path, opts))
+		if _, err := fmt.Fprintf(w, "### File: `%s`\n\n", displayPath(node.Path, opts)); err != nil {
+			return err
+		}
 		if node.IsBinary {
 			if opts.HexBinary {
 				data, err := os.ReadFile(node.Path)
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(w, "```\n%s```\n\n", highlight.HexDump(data))
+				if _, err := fmt.Fprintf(w, "```\n%s```\n\n", highlight.HexDump(data)); err != nil {
+					return err
+				}
 			} else {
-				fmt.Fprintf(w, "> [binary — %d bytes]\n\n", node.Size)
+				if _, err := fmt.Fprintf(w, "> [binary — %d bytes]\n\n", node.Size); err != nil {
+					return err
+				}
 			}
 			continue
 		}
@@ -39,11 +50,17 @@ func renderMarkdown(w io.Writer, state *selector.State, opts Options) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "```%s\n%s", lang, string(data))
-		if !strings.HasSuffix(string(data), "\n") {
-			fmt.Fprintln(w)
+		if _, err := fmt.Fprintf(w, "```%s\n%s", lang, string(data)); err != nil {
+			return err
 		}
-		fmt.Fprintf(w, "```\n\n")
+		if !strings.HasSuffix(string(data), "\n") {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprint(w, "```\n\n"); err != nil {
+			return err
+		}
 	}
 	return nil
 }

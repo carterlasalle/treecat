@@ -143,16 +143,17 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 			state.Sort(sort)
 
 			out := w
+			var output *os.File
 			if outputFile != "" {
 				f, err := os.Create(outputFile)
 				if err != nil {
 					return err
 				}
-				defer f.Close()
+				output = f
 				out = f
 			}
 
-			return renderer.Render(out, state, renderer.Options{
+			renderErr := renderer.Render(out, state, renderer.Options{
 				Format:        format,
 				NoColor:       resolvedNoColor,
 				NoSyntax:      noSyntax,
@@ -162,6 +163,14 @@ func NewRootCmd(w io.Writer) *cobra.Command {
 				RootPath:      abs,
 				RelativePaths: relativePaths,
 			})
+			if output == nil {
+				return renderErr
+			}
+			if renderErr != nil {
+				_ = output.Close()
+				return renderErr
+			}
+			return output.Close()
 		},
 	}
 	cmd.SetOut(w)

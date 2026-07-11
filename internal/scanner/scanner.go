@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -42,6 +43,9 @@ func scan(path string, depth int, opts Options) (*FileNode, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("refusing to follow symbolic link: %s", path)
 	}
 
 	node := &FileNode{
@@ -87,7 +91,7 @@ func readMeta(path string) (lines, chars int64, binary bool) {
 	if err != nil {
 		return 0, 0, false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	buf := make([]byte, 32*1024)
 	inspected := 0
