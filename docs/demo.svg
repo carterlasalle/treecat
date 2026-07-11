@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">treecat terminal output</title>
+  <desc id="desc">A dark terminal showing a project tree followed by syntax-highlighted Go source.</desc>
+  <rect width="1200" height="620" rx="22" fill="#0d1117"/>
+  <rect width="1200" height="54" rx="22" fill="#161b22"/>
+  <rect y="32" width="1200" height="22" fill="#161b22"/>
+  <circle cx="30" cy="27" r="8" fill="#ff5f56"/><circle cx="56" cy="27" r="8" fill="#ffbd2e"/><circle cx="82" cy="27" r="8" fill="#27c93f"/>
+  <text x="600" y="34" text-anchor="middle" fill="#8b949e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17">treecat . --relative -o md</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">
+    <text x="34" y="94" fill="#7ee787">$ treecat . --relative</text>
+    <text x="34" y="132" fill="#c9d1d9">Directory Structure:</text>
+    <text x="34" y="170" fill="#79c0ff">myproject/</text>
+    <text x="54" y="204" fill="#c9d1d9">├── README.md</text>
+    <text x="54" y="238" fill="#c9d1d9">├── go.mod</text>
+    <text x="54" y="272" fill="#c9d1d9">└── cmd/</text>
+    <text x="74" y="306" fill="#c9d1d9">└── main.go</text>
+    <text x="34" y="356" fill="#8b949e">────────────────────────────────────────</text>
+    <text x="34" y="394" fill="#ffa657">File: cmd/main.go</text>
+    <text x="34" y="432" fill="#ff7b72">package</text><text x="126" y="432" fill="#c9d1d9">main</text>
+    <text x="34" y="476" fill="#ff7b72">import</text><text x="112" y="476" fill="#a5d6ff">"fmt"</text>
+    <text x="34" y="520" fill="#d2a8ff">func</text><text x="92" y="520" fill="#79c0ff">main</text><text x="146" y="520" fill="#c9d1d9">() {</text>
+    <text x="64" y="554" fill="#c9d1d9">fmt.Println(</text><text x="204" y="554" fill="#a5d6ff">"hello"</text><text x="290" y="554" fill="#c9d1d9">)</text>
+    <text x="34" y="588" fill="#c9d1d9">}</text>
+  </g>
+</svg>

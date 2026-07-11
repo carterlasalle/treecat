@@ -37,11 +37,13 @@ func TestRender_Terminal_ContainsTree(t *testing.T) {
 
 func TestRender_Terminal_ContainsFileContents(t *testing.T) {
 	var buf bytes.Buffer
-	renderer.Render(&buf, makeState(), renderer.Options{
+	if err := renderer.Render(&buf, makeState(), renderer.Options{
 		Format:   renderer.FormatTerminal,
 		NoColor:  true,
 		NoSyntax: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	out := buf.String()
 	if !strings.Contains(out, "File:") {
 		t.Error("output should contain file sections")
@@ -53,7 +55,9 @@ func TestRender_Terminal_ContainsFileContents(t *testing.T) {
 
 func TestRender_Markdown_HasCodeFences(t *testing.T) {
 	var buf bytes.Buffer
-	renderer.Render(&buf, makeState(), renderer.Options{Format: renderer.FormatMarkdown})
+	if err := renderer.Render(&buf, makeState(), renderer.Options{Format: renderer.FormatMarkdown}); err != nil {
+		t.Fatal(err)
+	}
 	out := buf.String()
 	if !strings.Contains(out, "```") {
 		t.Error("markdown output should have code fences")
@@ -65,7 +69,9 @@ func TestRender_Markdown_HasCodeFences(t *testing.T) {
 
 func TestRender_Text_NoANSI(t *testing.T) {
 	var buf bytes.Buffer
-	renderer.Render(&buf, makeState(), renderer.Options{Format: renderer.FormatText})
+	if err := renderer.Render(&buf, makeState(), renderer.Options{Format: renderer.FormatText}); err != nil {
+		t.Fatal(err)
+	}
 	out := buf.String()
 	if strings.Contains(out, "\x1b[") {
 		t.Error("text output should not contain ANSI codes")
@@ -76,7 +82,9 @@ func TestRender_BinarySkipped(t *testing.T) {
 	root, _ := scanner.Scan("../../testdata/fixture", scanner.Options{})
 	s := selector.New(root)
 	var buf bytes.Buffer
-	renderer.Render(&buf, s, renderer.Options{Format: renderer.FormatText, NoColor: true})
+	if err := renderer.Render(&buf, s, renderer.Options{Format: renderer.FormatText, NoColor: true}); err != nil {
+		t.Fatal(err)
+	}
 	out := buf.String()
 	if !strings.Contains(out, "[binary") {
 		t.Error("binary files should show a [binary ...] note")
@@ -87,10 +95,12 @@ func TestRender_HexDump(t *testing.T) {
 	root, _ := scanner.Scan("../../testdata/fixture", scanner.Options{})
 	s := selector.New(root)
 	var buf bytes.Buffer
-	renderer.Render(&buf, s, renderer.Options{
+	if err := renderer.Render(&buf, s, renderer.Options{
 		Format:    renderer.FormatText,
 		HexBinary: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	out := buf.String()
 	if !strings.Contains(out, "00000000") {
 		t.Error("hex dump should contain offset for binary files")

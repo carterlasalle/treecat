@@ -429,6 +429,9 @@ func renderToFile(path string, state *selector.State, opts renderer.Options) err
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return renderer.Render(f, state, opts)
+	if err := renderer.Render(f, state, opts); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }

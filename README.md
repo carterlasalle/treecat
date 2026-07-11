@@ -2,6 +2,12 @@
 
 Print a recursive directory tree followed by syntax-highlighted contents of every selected file. Built for sharing code context with LLMs, documentation, and code review.
 
+[![CI](https://github.com/carterlasalle/treecat/actions/workflows/ci.yml/badge.svg)](https://github.com/carterlasalle/treecat/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/carterlasalle/treecat)](https://github.com/carterlasalle/treecat/releases/latest)
+[![Go Reference](https://pkg.go.dev/badge/github.com/carterlasalle/treecat.svg)](https://pkg.go.dev/github.com/carterlasalle/treecat)
+
+![treecat terminal demo](docs/demo.svg)
+
 ```
 Directory Structure:
 
@@ -125,6 +131,10 @@ treecat . -i
 ## Compatibility and stability
 
 `treecat` follows semantic versioning for user-facing CLI behavior. Patch releases should only fix bugs. Minor releases may add flags, commands, or output improvements without breaking existing invocations. Breaking changes to flags, command names, or output defaults should be reserved for major releases and called out explicitly in release notes.
+
+Treecat skips symbolic links and never follows them outside the requested root.
+
+The internal package layout and design tradeoffs are documented in [docs/architecture.md](docs/architecture.md). See [CONTRIBUTING.md](CONTRIBUTING.md) to build and validate changes locally.
 
 For script-friendly usage, prefer these stable entry points:
 

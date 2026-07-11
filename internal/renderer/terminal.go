@@ -14,15 +14,23 @@ import (
 
 func renderTerminal(w io.Writer, state *selector.State, opts Options) error {
 	if !opts.NoTree {
-		fmt.Fprintf(w, "Directory Structure:\n\n")
-		renderTree(w, state.Root, "", state.SortMode())
-		fmt.Fprintln(w)
+		if _, err := fmt.Fprint(w, "Directory Structure:\n\n"); err != nil {
+			return err
+		}
+		if err := renderTree(w, state.Root, "", state.SortMode()); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
 	}
 	if opts.NoContent {
 		return nil
 	}
 	for _, node := range state.Selected() {
-		fmt.Fprintf(w, "\n---\nFile: %s\n---\n\n", displayPath(node.Path, opts))
+		if _, err := fmt.Fprintf(w, "\n---\nFile: %s\n---\n\n", displayPath(node.Path, opts)); err != nil {
+			return err
+		}
 		if err := writeFileContent(w, node, opts); err != nil {
 			return err
 		}
@@ -30,9 +38,11 @@ func renderTerminal(w io.Writer, state *selector.State, opts Options) error {
 	return nil
 }
 
-func renderTree(w io.Writer, node *scanner.FileNode, prefix string, sortMode selector.SortMode) {
+func renderTree(w io.Writer, node *scanner.FileNode, prefix string, sortMode selector.SortMode) error {
 	if node.Depth == 0 {
-		fmt.Fprintf(w, "%s/\n", node.Name)
+		if _, err := fmt.Fprintf(w, "%s/\n", node.Name); err != nil {
+			return err
+		}
 	}
 	children := sortedTreeChildren(node.Children, sortMode)
 	for i, child := range children {
@@ -43,11 +53,16 @@ func renderTree(w io.Writer, node *scanner.FileNode, prefix string, sortMode sel
 			connector = "└── "
 			childPrefix = prefix + "    "
 		}
-		fmt.Fprintf(w, "%s%s%s\n", prefix, connector, child.Name)
+		if _, err := fmt.Fprintf(w, "%s%s%s\n", prefix, connector, child.Name); err != nil {
+			return err
+		}
 		if child.IsDir {
-			renderTree(w, child, childPrefix, sortMode)
+			if err := renderTree(w, child, childPrefix, sortMode); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func sortedTreeChildren(children []*scanner.FileNode, mode selector.SortMode) []*scanner.FileNode {
@@ -96,9 +111,13 @@ func writeFileContent(w io.Writer, node *scanner.FileNode, opts Options) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprint(w, highlight.HexDump(data))
+			if _, err := fmt.Fprint(w, highlight.HexDump(data)); err != nil {
+				return err
+			}
 		} else {
-			fmt.Fprintf(w, "[binary — %d bytes, use --hex to view]\n", node.Size)
+			if _, err := fmt.Fprintf(w, "[binary — %d bytes, use --hex to view]\n", node.Size); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -108,17 +127,21 @@ func writeFileContent(w io.Writer, node *scanner.FileNode, opts Options) error {
 	}
 	src := string(data)
 	if opts.NoSyntax || opts.NoColor {
-		fmt.Fprint(w, src)
+		if _, err := fmt.Fprint(w, src); err != nil {
+			return err
+		}
 		if !strings.HasSuffix(src, "\n") {
-			fmt.Fprintln(w)
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
 	highlighted, err := highlight.File(node.Name, src, highlight.Options{Color: true})
 	if err != nil || highlighted == "" {
-		fmt.Fprint(w, src)
-		return nil
+		_, writeErr := fmt.Fprint(w, src)
+		return writeErr
 	}
-	fmt.Fprint(w, highlighted)
-	return nil
+	_, writeErr := fmt.Fprint(w, highlighted)
+	return writeErr
 }
