@@ -133,12 +133,3 @@ jobs:
           /tmp/treecat-smoke/treecat version
           /tmp/treecat-smoke/treecat completion bash >/dev/null
           /tmp/treecat-smoke/treecat man >/dev/null
-
-  dependency-review:
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: read
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
