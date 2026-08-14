@@ -20,11 +20,11 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -39,29 +39,35 @@ jobs:
 
       - name: Run vulnerability scan
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           govulncheck ./...
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           distribution: goreleaser
-          version: latest
+          version: v2.17.0
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
 
       - name: Verify release artifacts
+        shell: bash
         run: |
+          set -euo pipefail
           test -f dist/checksums.txt
           test -n "$(ls dist/*.tar.gz)"
+          test -n "$(ls dist/*.zip)"
           test -n "$(ls dist/*.deb)"
           test -n "$(ls dist/*.rpm)"
           test -n "$(ls dist/*.apk)"
+          (cd dist && sha256sum --check checksums.txt)
 
-      - name: Smoke test released binary
+      - name: Smoke test Linux release binary
+        shell: bash
         run: |
+          set -euo pipefail
           rm -rf /tmp/treecat-release
           mkdir -p /tmp/treecat-release
           tar -xzf dist/treecat_linux_amd64.tar.gz -C /tmp/treecat-release
@@ -69,8 +75,30 @@ jobs:
           /tmp/treecat-release/treecat completion bash >/dev/null
           /tmp/treecat-release/treecat man >/dev/null
 
+      - name: Smoke test Windows ZIP contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/treecat-windows
+          mkdir -p /tmp/treecat-windows
+          unzip -q dist/treecat_windows_amd64.zip -d /tmp/treecat-windows
+          test -f /tmp/treecat-windows/treecat.exe
+          test -f /tmp/treecat-windows/README.md
+          test -f /tmp/treecat-windows/LICENSE
+
+      - name: Smoke test Debian install and uninstall
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(ls dist/treecat_*_linux_amd64.deb | head -n1)"
+          sudo dpkg -i "$package"
+          treecat version
+          treecat --help >/dev/null
+          sudo dpkg -r treecat
+          ! command -v treecat
+
       - name: Install syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
 
       - name: Generate SBOM
         run: syft dir:dist -o spdx-json=dist/treecat.spdx.json
@@ -81,6 +109,6 @@ jobs:
         run: gh release upload "${GITHUB_REF_NAME}" dist/treecat.spdx.json --clobber
 
       - name: Attest checksums manifest
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: dist/checksums.txt
