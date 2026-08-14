@@ -1,6 +1,6 @@
 module github.com/carterlasalle/treecat
 
-go 1.25.8
+go 1.25.13
 
 require (
 	github.com/alecthomas/chroma/v2 v2.27.0

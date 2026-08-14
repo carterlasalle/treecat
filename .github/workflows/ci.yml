@@ -39,6 +39,14 @@ jobs:
       - name: Test
         run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
 
+      - name: Enforce coverage floor
+        shell: bash
+        run: |
+          set -euo pipefail
+          coverage="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          echo "Total coverage: ${coverage}%"
+          awk -v coverage="$coverage" 'BEGIN { if (coverage + 0 < 50.0) exit 1 }'
+
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
@@ -118,18 +126,35 @@ jobs:
           args: release --snapshot --clean --skip=publish
 
       - name: Verify generated artifacts
+        shell: bash
         run: |
+          set -euo pipefail
           test -f dist/checksums.txt
           test -n "$(ls dist/*.tar.gz)"
+          test -n "$(ls dist/*.zip)"
           test -n "$(ls dist/*.deb)"
           test -n "$(ls dist/*.rpm)"
           test -n "$(ls dist/*.apk)"
+          (cd dist && sha256sum --check checksums.txt)
 
-      - name: Smoke test packaged binary
+      - name: Smoke test packaged Linux binary
+        shell: bash
         run: |
+          set -euo pipefail
           rm -rf /tmp/treecat-smoke
           mkdir -p /tmp/treecat-smoke
           tar -xzf dist/treecat_linux_amd64.tar.gz -C /tmp/treecat-smoke
           /tmp/treecat-smoke/treecat version
           /tmp/treecat-smoke/treecat completion bash >/dev/null
           /tmp/treecat-smoke/treecat man >/dev/null
+
+      - name: Smoke test Windows ZIP contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/treecat-windows
+          mkdir -p /tmp/treecat-windows
+          unzip -q dist/treecat_windows_amd64.zip -d /tmp/treecat-windows
+          test -f /tmp/treecat-windows/treecat.exe
+          test -f /tmp/treecat-windows/README.md
+          test -f /tmp/treecat-windows/LICENSE
